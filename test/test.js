@@ -1,0 +1,1 @@
+console.log('object' === typeof process && Object.prototype.toString.call(process) === '[object process]')

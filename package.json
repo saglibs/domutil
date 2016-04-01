@@ -1,0 +1,25 @@
+{
+  "name": "domutil",
+  "version": "0.0.1",
+  "description": "dom operation utils",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/saglibs/domutil.git"
+  },
+  "keywords": [
+    "DOM"
+  ],
+  "author": "sagnitude",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/saglibs/domutil/issues"
+  },
+  "homepage": "https://github.com/saglibs/domutil#readme",
+  "dependencies": {
+    "coreutil": "saglibs/coreutil"
+  }
+}
