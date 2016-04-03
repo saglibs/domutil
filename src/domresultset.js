@@ -1,54 +1,58 @@
 var RS = {};
 
-var C = require('coreutil/dist/corecore');
+var C = require('coreutil/core');
+var ARS = require('coreutil/src/abstractresultset');
+var Mini = require('coreutil/mini');
 
-var rsDescriptor = {
-    value: true,
-    writable: false,
-    configurable: false,
-    enumerable: false
-};
+var DomIdentifier = '__isDOM__';
 
-C.addProperty(Array.prototype, '__isRS__', rsDescriptor);
+//node.js fallback
+var htmlElementObj = function() {};
 
-function makeResultSet(object) {
-    if (object != null && !object['__isRS__'] && typeof object === 'object') {
-        C.addProperty(object, '__isRS__', rsDescriptor);
-    }
+try {
+    htmlElementObj = eval('HTMLElement');
+} catch (e) {
+    e.printStackTrace("DOM cannot be operated in node.js environment!");
+    return;
 }
 
-function objectIsResultSet(object) {
-    if (object == null) return false;
-    if (object['__isRS__']) {
+function checker(val) {
+    if (val instanceof Array || val instanceof htmlElementObj) {
         return true;
     }
-    if (object instanceof Element) {
-        if (!object['__isRS__']) {
-            makeResultSet(object);
+}
+
+ARS.registerChannel(DomIdentifier, [HTMLElement.prototype, Array.prototype], checker);
+
+function registerComponent(name, func) {
+    ARS.registerChannelFunction(DomIdentifier, name, function(preCheck) {
+        checker = preCheck;
+        return func;
+    });
+}
+
+function wrapFunction(fn) {
+    return function() {
+        if (checker(arguments[0])) {
+            return fn.apply(this, arguments);
         }
     }
 }
 
-function isResultSet(object) {
-    if (C.isNodejs) return false;
-    //if isArrayLike, and only contains Elements, return true
-    if (C.isArrayLike(object)) {
-        var l = object.length;
-        var n = object.length;
-        if (l > 0) {
-            l++;
-            while(--l) {
-                if (!objectIsResultSet(object[n - l])) {
-                    return false;
-                }
-            }
-            return true;
-        }
-    } else {
-        return objectIsResultSet(object);
-    }
-}
+/*
+ * ResultSet Operations
+ *
+ * TODO: enable access control from ResultSet impl. (expand preCheck function)
+ * for example:
+ * ban access from DomResultSet.join
+ */
 
-// isResultSet({})
+//registerComponent("key", func);
+
+var wrap = ARS.wrapperGen(DomIdentifier);
+
+RS.wrapDom = wrap;
+
+//RS.H$ is a CSS selector processor
 
 module.exports = RS;
