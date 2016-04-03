@@ -3,6 +3,7 @@ var RS = {};
 var C = require('coreutil/core');
 var ARS = require('coreutil/src/abstractresultset');
 var Mini = require('coreutil/mini');
+var Selector = require('./selector');
 
 var DomIdentifier = '__isDOM__';
 
@@ -10,7 +11,7 @@ var DomIdentifier = '__isDOM__';
 var htmlElementObj = function() {};
 
 try {
-    htmlElementObj = eval('HTMLElement');
+    htmlElementObj = eval('Element');
 } catch (e) {
     e.printStackTrace("DOM cannot be operated in node.js environment!");
     return;
@@ -22,7 +23,7 @@ function checker(val) {
     }
 }
 
-ARS.registerChannel(DomIdentifier, [HTMLElement.prototype, Array.prototype], checker);
+ARS.registerChannel(DomIdentifier, [Element.prototype, Array.prototype], checker);
 
 function registerComponent(name, func) {
     ARS.registerChannelFunction(DomIdentifier, name, function(preCheck) {
@@ -46,13 +47,57 @@ function wrapFunction(fn) {
  * for example:
  * ban access from DomResultSet.join
  */
+function clone() {
+    //
+}
 
-//registerComponent("key", func);
+function css() {
+    //
+}
+
+function text() {
+    //
+}
+
+function attribute() {
+    //
+}
+
+function append() {
+    //
+}
+
+function prepend() {
+    //
+}
+
+function parent() {
+    //
+}
+
+function getWidth() {
+    //
+}
+
+function getHeight() {
+    //
+}
+
+registerComponent("clone", clone);
+registerComponent("css", css);
+registerComponent("text", text);
+registerComponent("attribute", attribute);
+registerComponent("append", append);
+registerComponent("prepend", prepend);
+registerComponent("parent", parent);
+registerComponent("getWidth", getWidth);
+registerComponent("getHeight", getHeight);
 
 var wrap = ARS.wrapperGen(DomIdentifier);
 
 RS.wrapDom = wrap;
 
 //RS.H$ is a CSS selector processor
+RS.H$ = Selector;
 
 module.exports = RS;
