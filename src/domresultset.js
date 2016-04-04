@@ -4,8 +4,11 @@ var C = require('coreutil/core');
 var ARS = require('coreutil/src/abstractresultset');
 var Mini = require('coreutil/mini');
 var Selector = require('./selector');
+var Attr = require('./attribute');
 
 var DomIdentifier = '__isDOM__';
+
+var getSingleElement = Attr.getSingleElement;
 
 //node.js fallback
 var htmlElementObj = function() {};
@@ -72,25 +75,30 @@ function prepend() {
 }
 
 function parent() {
-    //
+    if (Mini.isArrayLike(this)) {
+        return Mini.arrayEach(this || [], parent);
+    }
+    if (this instanceof Element) {
+        return this.parentElement || this.parentNode;
+    }
 }
 
 function getWidth() {
-    //
+    return Attr.getAttribute(this, 'width');
 }
 
 function getHeight() {
     //
 }
 
-registerComponent("clone", clone);
-registerComponent("css", css);
-registerComponent("text", text);
+registerComponent("clone",     clone);
+registerComponent("css",       css);
+registerComponent("text",      text);
 registerComponent("attribute", attribute);
-registerComponent("append", append);
-registerComponent("prepend", prepend);
-registerComponent("parent", parent);
-registerComponent("getWidth", getWidth);
+registerComponent("append",    append);
+registerComponent("prepend",   prepend);
+registerComponent("parent",    parent);
+registerComponent("getWidth",  getWidth);
 registerComponent("getHeight", getHeight);
 
 var wrap = ARS.wrapperGen(DomIdentifier);
