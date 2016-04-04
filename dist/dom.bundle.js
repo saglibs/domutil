@@ -1,17 +1,4 @@
 (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
-var DOM = require('./src/selector');
-
-var Core = require('coreutil/core');
-var RS = require('./src/domresultset');
-var Attr = require('./src/attribute');
-
-Core.extend(Core, RS);
-Core.extend(Core, Attr);
-
-Core.root.H$ = DOM;
-
-module.exports = DOM;
-},{"./src/attribute":28,"./src/domresultset":29,"./src/selector":30,"coreutil/core":2}],2:[function(require,module,exports){
 var Core = require('./src/core');
 
 Core.extend(Core, require('./src/iterator'));
@@ -19,7 +6,7 @@ Core.extend(Core, require('./src/iterator'));
 Core.root.H = Core;
 
 module.exports = Core;
-},{"./src/core":14,"./src/iterator":17}],3:[function(require,module,exports){
+},{"./src/core":6,"./src/iterator":9}],2:[function(require,module,exports){
 /*
  * MiniCore module
  *
@@ -76,7 +63,2020 @@ Mini.hiddenProperty = function(v) {
 };
 
 module.exports = Mini;
-},{}],4:[function(require,module,exports){
+},{}],3:[function(require,module,exports){
+/*
+ * ResultSet: Array or Element, they share the same filter/checker
+ */
+
+/**
+ * Abstract ResultSet Module
+ *
+ * @static
+ * @memberof H
+ * @type {Object}
+ */
+var ARS = {};
+
+var Mini = require('../mini');
+var H = require('./shims');
+
+ARS.modules = {};
+ARS.checkTargets = {};
+ARS.checkers = {};
+
+var MODULE = '__Module__';
+
+/**
+ * Register a ResultSet channel
+ * @param {String} identifier ResultSet channel identifier
+ * @param {Array} targets ResultSet element prototypes, should always contains Array.prototype
+ * @param {Function} valuePrechecker value validity prechecker function
+ */
+ARS.registerChannel = function(identifier, targets, valuePrechecker) {
+    ARS.modules[identifier] = {};
+    ARS.checkTargets[identifier] = targets;
+    ARS.checkers[identifier] = valuePrechecker;
+
+    Mini.arrayEach(targets || [], function(target) {
+        if (!target[MODULE]) {
+            H.addProperty(target, MODULE, Mini.hiddenProperty(MODULE));
+        }
+    });
+};
+
+/**
+ * Inner preCheck function. used to check validity of values
+ *
+ * @param {*} object value to check
+ * @returns {boolean}
+ */
+function preCheck(object) {
+    return !!(ARS.checkers[object[MODULE] || ""] || function() {})(object);
+}
+
+/**
+ * Register ResultSet process functions.
+ *
+ * TODO: integrate ResultSet.registerComponent into this function (maybe some dependency injection?)
+ *
+ * @param {String} channel channel identifier
+ * @param {String} name target function mount point
+ * @param {Function} funcGen function generator, which produces a function with checker
+ * function injected. This provides ability of checking content validity to target functions.
+ */
+ARS.registerChannelFunction = function(channel, name, funcGen) {
+    Mini.arrayEach(ARS.checkTargets[channel] || [], function(target) {
+        if (target[name]) {
+            //exist, do nothing. cuz preChecker is relative to current module
+        } else {
+            //not exist, add func to target
+            // target[name] = funcGen(ARS.checkers[channel]);
+            H.addProperty(target, name, Mini.hiddenProperty(funcGen(preCheck)));
+        }
+    });
+};
+
+/**
+ * Wrapper function generator.
+ *
+ * @param {String} identifier channel identifier
+ * @returns {wrap} wrapper function to wrap any value into specific ResultSet form
+ */
+ARS.wrapperGen = function(identifier) {
+    //assuming prototype exists
+    function transform(obj) {
+        if (obj.prototype && obj.prototype.__Module__ && obj.prototype.__Module__ !== identifier) {
+            obj.prototype.__Module__ = identifier;
+        }
+        if (obj.__proto__ && obj.__proto__.__Module__ && obj.__proto__.__Module__ !== identifier) {
+            obj.__proto__.__Module__ = identifier;
+        }
+    }
+
+    function transformArray(obj) {
+        if (Mini.isArrayLike(obj)) {
+            Mini.arrayEach(obj, transformArray);
+        }
+        transform(obj, identifier);
+    }
+
+    /**
+     * Wrap an object to ResultSet
+     *
+     * @static
+     * @param {Array|Object} v anything to wrap
+     * @returns {*} wrapped ResultSet object
+     */
+    function wrap(v) {
+        transformArray(v);
+        return v;
+    }
+
+    return wrap;
+};
+
+module.exports = ARS;
+},{"../mini":2,"./shims":14}],4:[function(require,module,exports){
+var A = {};
+
+/**
+ * Reads a 32bit integer from the specific offset in a Uint8Array (big or little endian)
+ *
+ * @static
+ * @memberof H
+ * @param {Uint8Array} byteView uint8array object
+ * @param {Number} [offset] byte offset
+ * @param {boolean} [littleEndian] flag of is or is not little endian
+ * @returns {Number}
+ * @example
+ *
+ * H.readInt32(uint8, 0, 1)
+ */
+A.readInt32 = function(byteView, offset, littleEndian) {
+    var a0, a1, a2, a3;
+    a0 = byteView[offset];
+    a1 = byteView[offset + 1];
+    a2 = byteView[offset + 2];
+    a3 = byteView[offset + 3];
+    if (littleEndian) {
+        a3 = (a3 << 24) >>> 0;
+        a2 = a2 << 16;
+        a1 = a1 << 8;
+    } else {
+        a0 = (a0 << 24) >>> 0;
+        a1 = a1 << 16;
+        a2 = a2 << 8;
+    }
+    return a3 + a2 + a1 + a0;
+};
+
+/**
+ * Reads a 16bit integer from the specific offset in a Uint8Array (big or little endian)
+ *
+ * @static
+ * @memberof H
+ * @param {Uint8Array} byteView uint8array object
+ * @param {Number} [offset] byte offset
+ * @param {boolean} [littleEndian] flag of is or is not little endian
+ * @returns {Number}
+ * @example
+ *
+ * H.readInt16(uint8, 0, 1)
+ */
+A.readInt16 = function(byteView, offset, littleEndian) {
+    var a0, a1;
+    a0 = byteView[offset];
+    a1 = byteView[offset + 1];
+    if (littleEndian) {
+        a1 = a1 << 8;
+    } else {
+        a0 = a0 << 8
+    }
+    return a0 + a1;
+};
+
+var native = new Int8Array(new Int16Array([1]).buffer)[0] == 1;
+/**
+ * Reads a 32bit float from the specific offset in a Uint8Array (big or little endian)
+ *
+ * @static
+ * @memberof H
+ * @param {Uint8Array} byteView uint8array object
+ * @param {Number} [offset] byte offset
+ * @param {boolean} [littleEndian] flag of is or is not little endian
+ * @returns {Number}
+ * @example
+ *
+ * H.readFloat32(uint8, 0, 1)
+ */
+A.readFloat32 = function(byteView, offset, littleEndian) {
+    var b0, b1, b2, b3, tb1;
+    var sign, exponent, mantissa;
+    if (littleEndian === undefined) littleEndian = native;
+
+    if (littleEndian) {
+        b0 = byteView[offset + 3];
+        b1 = byteView[offset + 2];
+        b2 = byteView[offset + 1];
+        b3 = byteView[offset];
+    } else {
+        b0 = byteView[offset];
+        b1 = byteView[offset + 1];
+        b2 = byteView[offset + 2];
+        b3 = byteView[offset + 3];
+    }
+
+    //to prevent gc
+    tb1 = b0 >> 7;
+    sign = 1 - (2 * tb1);
+
+    b0 = b0 << 1;
+    tb1 = b1 >> 7;
+    b0 = (b0 & 0xff);
+    exponent = (b0 | tb1) - 127;
+
+    tb1 = b1 & 0x7f;
+    tb1 = tb1 << 16;
+    b2 = b2 << 8;
+    mantissa = tb1 | b2 | b3;
+
+    if (exponent === 128) {
+        if (mantissa !== 0) {
+            return NaN;
+        } else {
+            return sign * Infinity;
+        }
+    }
+
+    if (exponent === -127) { // Denormalized
+        return sign * mantissa * Math.pow(2, -126 - 23);
+    }
+
+    return sign * (1 + mantissa * Math.pow(2, -23)) * Math.pow(2, exponent);
+};
+
+module.exports = A;
+},{}],5:[function(require,module,exports){
+var C = require('./detect');
+
+/*
+ * Cef Interactions
+ */
+//noinspection JSUnresolvedVariable
+var cefQuery = C.root.cefQuery || function() {
+        if (this.debug) console.log(arguments[0]);
+    };
+
+/**
+ * Call Cef
+ *
+ * @static
+ * @memberof H
+ * @param {string} [req] request string
+ * @param {boolean} [persistent]
+ * @param {Function} [onsuccess] success callback
+ * @param {Function} [onfailure] failed callback
+ * @returns {undefined}
+ * @example
+ *
+ * H.callCef("selectItem:1", false, H.noop(), H.noop())
+ */
+C.callCef = function(req, persistent, onsuccess, onfailure) {
+    return cefQuery({
+        request: req || "",
+        persistent: !!persistent,
+        onSuccess: onsuccess || function(response) {},
+        onFailure: onfailure || function(err_code, err_msg) {}
+    })
+};
+
+module.exports = C;
+},{"./detect":7}],6:[function(require,module,exports){
+var _ = require('lodash/core');
+
+require('./raf');
+
+var Detect = require('./detect');
+var StackTrace = require('./stacktrace');
+var ArrayBufferOp = require('./arraybuffer');
+var CefInteractions = require('./cef_interactions');
+var Maths = require('./math');
+var Objects = require('./object');
+var Storage = require('./storage');
+var Tester = require('./testers');
+var UrlUtils = require('./urlutils');
+var Uuids = require('./uuid');
+var Events = require('./event');
+// var Iterator = require('./iterator');
+var Shims = require('./shims');
+var ARS = require('./abstractresultset');
+var RS = require('./resultset');
+
+var C = {};
+
+_.extend(C, _);
+_.extend(C, Detect);
+_.extend(C, StackTrace);
+_.extend(C, ArrayBufferOp);
+_.extend(C, CefInteractions);
+_.extend(C, Maths);
+_.extend(C, Objects);
+_.extend(C, Storage);
+_.extend(C, Tester);
+_.extend(C, UrlUtils);
+_.extend(C, Uuids);
+_.extend(C, Events);
+// _.extend(C, Iterator);
+_.extend(C, Shims);
+_.extend(C, RS);
+
+C.abstraceResultSet = ARS;
+
+C.noop = function() {
+    return function() {};
+};
+
+C.now = Date.now;
+
+/*
+ * jQuery Shim
+ */
+//noinspection JSUnresolvedVariable
+if (C.root.jQuery) {
+    //noinspection JSUnresolvedVariable,JSUnusedGlobalSymbols
+    C.root.jQuery.fn.extend({
+        slideLeftHide: function( speed, callback ) {
+            //noinspection JSUnresolvedFunction
+            this.animate( {
+                width: "hide",
+                paddingLeft: "hide",
+                paddingRight: "hide",
+                marginLeft: "hide",
+                marginRight: "hide"
+            }, speed, callback);
+        },
+        slideLeftShow: function( speed, callback ) {
+            //noinspection JSUnresolvedFunction
+            this.animate( {
+                width: "show",
+                paddingLeft: "show",
+                paddingRight: "show",
+                marginLeft: "show",
+                marginRight: "show"
+            }, speed, callback);
+        }
+    });
+}
+
+//noinspection JSUnusedGlobalSymbols
+C.extend(String.prototype, {
+    replaceAll: function(s1,s2){
+        return this.replace(new RegExp(s1,"gm"),s2);
+    }
+});
+
+/**
+ * Produce a random string in a fixed size. Output size is 16 by default.
+ *
+ * @static
+ * @memberof H
+ * @param {Number} [size] length of target string
+ * @returns {string}
+ */
+C.nonceStr = function(size) {
+    var s = "";
+    var c = "0123456789qwertyuiopasdfghjklzxcvbnm";
+    for (var i = 0; i < size || 16; i++) {
+        s += c[parseInt(36 * Math.random())];
+    }
+    return s;
+};
+
+/**
+ * Clear timer
+ *
+ * @static
+ * @memberof H
+ * @param timer timer to clear
+ */
+C.clearTimer = function(timer) {
+    if (timer) {
+        clearInterval(timer);
+    }
+};
+
+module.exports = C;
+},{"./abstractresultset":3,"./arraybuffer":4,"./cef_interactions":5,"./detect":7,"./event":8,"./math":10,"./object":11,"./raf":12,"./resultset":13,"./shims":14,"./stacktrace":15,"./storage":16,"./testers":17,"./urlutils":18,"./uuid":19,"lodash/core":22}],7:[function(require,module,exports){
+/*
+ * Env Detection Module
+ */
+
+var C = {};
+
+C.isArrayLike = require('lodash/isArrayLike');
+
+/**
+ * Check if a value can be parsed to an integer
+ *
+ * @static
+ * @memberof H
+ * @param {*} i value to be checked
+ * @returns {boolean}
+ */
+C.isInteger = function(i) {
+    return  /^-?\d+$/.test(i + "") || /^(-?\d+)e(\d+)$/.test(i + "");
+};
+
+/**
+ * Checks if a value can be parsed into a float.
+ *
+ * @static
+ * @memberof H
+ * @param {*} v value to be checked
+ * @returns {boolean}
+ */
+C.isFloat = function(v) {
+    return /^(-?\d+)(\.\d+)?$/.test(v + "") || /^(-?\d+)(\.\d+)?e(-?\d+)$/.test(v + "");
+};
+
+var processObj = undefined;
+
+try {
+    processObj = eval('process');
+} catch (e) {}
+
+/**
+ * Flag of is in node.js environment or not.
+ *
+ * @static
+ * @memberof H
+ * @type {boolean}
+ */
+C.isNodejs = 'object' === typeof processObj && Object.prototype.toString.call(processObj) === '[object process]';
+
+C.root = {};
+
+try {
+    //noinspection JSUnresolvedVariable
+    C.root = GLOBAL;
+} catch (e) {
+    C.root = window;
+}
+
+//noinspection JSUnresolvedVariable
+// C.root = C.isNodejs ? GLOBAL : window;
+
+//noinspection JSUnresolvedVariable
+var root = C.root;
+
+//noinspection JSUnresolvedVariable
+root.navigator = root.navigator || {userAgent: ""};
+
+C.root = root;
+
+/**
+ * Get IE version.
+ * Returns 0 in non-IE environment.
+ *
+ * @static
+ * @memberof H
+ * @returns {number}
+ */
+C.getIE = function() {
+    var MSIEs = navigator.userAgent.split('MSIE ')[1] || "0";
+    var DNETs = navigator.userAgent.split('rv:')[1] || "0";
+
+    MSIEs = MSIEs.split(".")[0];
+    DNETs = DNETs.split(".")[0];
+
+    var msie = ~~MSIEs;
+    var dnet = ~~DNETs;
+
+    if (msie != 0) {
+        return msie;
+    }
+    if (dnet != 0) {
+        return dnet;
+    }
+
+    return 0;
+};
+
+/**
+ * Check if is in IE or is in a specified version of IE.
+ *
+ * @static
+ * @memberof H
+ * @param {Number} [v] version to check
+ * @returns {boolean}
+ */
+C.isIE = function(v) {
+    if (v !== undefined) {
+        return C.getIE() == v;
+    } else {
+        return C.getIE() !== 0;
+    }
+};
+
+/**
+ * Flag of is in IE.
+ *
+ * @static
+ * @memberof H
+ * @type {boolean}
+ */
+C.likeIE = !!C.getIE();
+
+/**
+ * Flag of is in browsers on iPhone.
+ *
+ * @static
+ * @memberof H
+ * @type {boolean}
+ */
+C.isiPhone = navigator.userAgent.indexOf('iPhone') !== -1;
+
+/**
+ * Flag of is in browsers of Lollipop systems
+ * @type {boolean}
+ */
+C.isLollipop = navigator.userAgent.indexOf('Android 5.') !== -1;
+
+//root.hasOwnProperty shims
+if (!root.hasOwnProperty) {
+    root.hasOwnProperty = function(p) {
+        //Note: in IE<9, p cannot be a function (for window)
+        return !!root[p];
+    };
+}
+
+/**
+ * Check if canvas drawing is supported in current browser.
+ *
+ * @static
+ * @memberof H
+ * @returns {boolean}
+ */
+C.isCanvasSupported = function () {
+    if (C.isNodejs) return false;
+    var canvas = document.createElement('canvas');
+    return root.hasOwnProperty("__cv") ? root.__cv : root.__cv = !!(canvas.getContext && canvas.getContext('2d'));
+};
+
+/**
+ * Check if webgl drawing is supported in current browser.
+ *
+ * @static
+ * @memberof H
+ * @returns {boolean}
+ */
+C.isWebGLSupported = function () {
+    if (C.isNodejs) return false;
+    var canvas = document.createElement('canvas');
+    return root.hasOwnProperty("__gl") ? root.__gl : root.__gl = !!(root['WebGLRenderingContext'] && canvas.getContext('webgl'));
+};
+
+C.isCanvasSupported();
+C.isWebGLSupported();
+
+/**
+ * Language string
+ *
+ * @static
+ * @memberof H
+ * @type {string}
+ */
+C.language = C.isNodejs ? "" : (navigator.language || navigator['browserLanguage'] || "").toLowerCase();
+
+module.exports = C;
+},{"lodash/isArrayLike":23}],8:[function(require,module,exports){
+/*
+ * Custom Event Manipulation Module
+ */
+
+var E = {};
+
+var H = require('./uuid');
+var C = require('./iterator');
+
+/**
+ * DOM event operators.
+ *
+ * @static
+ * @memberof H
+ * @type {{addHandler: E.Event.addHandler, removeHandler: E.Event.removeHandler}}
+ */
+E.Event = {
+    /**
+     * Add event handler
+     *
+     * @static
+     * @memberof H.Event
+     * @param {Element} oElement DOM element
+     * @param {String} sEvent event name
+     * @param {Function} fnHandler event handler
+     */
+    addHandler: function (oElement, sEvent, fnHandler) {
+        sEvent[0] = sEvent[0].toUpperCase();
+        oElement.addEventListener ? oElement.addEventListener(sEvent, fnHandler, false) : oElement.attachEvent("on" + sEvent, fnHandler)
+    },
+    /**
+     * Remove event handler from dom element
+     *
+     * @static
+     * @memberof H.Event
+     * @param {Element} oElement DOM element
+     * @param {String} sEvent event name
+     * @param {Function} fnHandler event handler
+     */
+    removeHandler: function (oElement, sEvent, fnHandler) {
+        sEvent[0] = sEvent[0].toUpperCase();
+        oElement.removeEventListener ? oElement.removeEventListener(sEvent, fnHandler, false) : oElement.detachEvent("on" + sEvent, fnHandler);
+        sEvent[0] = sEvent[0].toLowerCase();
+        oElement.removeEventListener ? oElement.removeEventListener(sEvent, fnHandler, false) : oElement.detachEvent("on" + sEvent, fnHandler);
+    }
+};
+
+/**
+ * EventDispatcher
+ *
+ * @static
+ * @memberof H
+ * @returns {{listeners: {}, attachListener: H.EventDispatcher.attachListener, fire: H.EventDispatcher.fire, removeListener: H.EventDispatcher.removeListener, clearListener: H.EventDispatcher.clearListener}}
+ * @constructor
+ */
+E.EventDispatcher = function() {
+    return {
+        listeners: {},
+        /**
+         * Attach an listener listening on a channel
+         *
+         * @static
+         * @memberof H.EventDispatcher
+         * @param {String} key channel to listen
+         * @param {Function} cb listener body
+         * @returns {String} UUID String, listener identifier
+         */
+        attachListener: function(key, cb) {
+            this.listeners[key] = this.listeners[key] || {};
+            //noinspection JSUnresolvedVariable
+            cb.uuid = cb.uuid || H.fastUuid();
+            //noinspection JSUnresolvedVariable
+            this.listeners[key][cb.uuid] = cb;
+            //noinspection JSUnresolvedVariable
+            return cb.uuid;
+        },
+        /**
+         * Fire event at a channel now
+         *
+         * @static
+         * @memberof H.EventDispatcher
+         * @param {String} key event channel key to fire
+         * @param {*} [data] optional data to append
+         */
+        fire: function(key, data) {
+            if (this.listeners[key]) {
+                C.each(this.listeners[key], function(cb) {
+                    //noinspection JSUnresolvedVariable
+                    if (cb && typeof cb === 'function' && !cb.blocked) {
+                        try {
+                            cb(data);
+                        }catch(e) {
+                            console.log(e)
+                        }
+                    }
+                });
+            }
+        },
+        /**
+         * Remove a listener from a channel.
+         *
+         * @static
+         * @memberof H.EventDispatcher
+         * @param {String} key channel name
+         * @param {Function} func listener body
+         */
+        removeListener: function(key, func) {
+            if (this.listeners[key]) {
+                this.listeners[key] = C.each(this.listeners[key], function(listener) {
+                    //noinspection JSUnresolvedVariable
+                    if (listener.uuid !== func.uuid) return listener;
+                }).merge();
+            }
+        },
+        /**
+         * Clear all listeners on a channel
+         *
+         * @static
+         * @memberof H.EventDispatcher
+         * @param {String} key channel key to clear
+         */
+        clearListener: function(key) {
+            this.listeners[key] = undefined;
+            delete this.listeners[key];
+        }
+    };
+};
+
+module.exports = E;
+},{"./iterator":9,"./uuid":19}],9:[function(require,module,exports){
+/*
+ * Iterator Logic Module
+ */
+var C = require('lodash/core');
+var Mini = require('../mini');
+
+var I = function(template) {
+    I.template = template || I.resultWrapper;
+    return I;
+};
+
+/**
+ * Set the default result template.
+ * A result template will be used to produce a result object according to the input value.
+ *
+ * @static
+ * @param {Function} template
+ * @returns {I}
+ * @constructor
+ */
+I.setTemplate = function(template) {
+    I.template = template || I.resultWrapper;
+    return I;
+};
+
+/*
+ * @private
+ *
+ * returns a template object for the input value
+ */
+I.resultWrapper = function(v) {
+    if (I.template !== undefined) return I.template(v);
+    return (v === undefined || v === null) ? {} : (Mini.isArrayLike(v) ? [] : {});
+};
+
+/**
+ * Iterates an object or an array with an iteratee and a stack of stack trace
+ *
+ * @static
+ * @memberof H
+ * @param {Array|Object} obj
+ * @param {Function} fn
+ * @param {Array|String} [stackStack]
+ * @return {Array|Object} return mapped results of the input object
+ */
+I.each = function(obj, fn, stackStack) {
+    stackStack = stackStack || [];
+    var ret = I.resultWrapper(obj);
+    if (H.debug) {
+        C.each(obj, function(val, key, list) {
+            try {
+                var r = fn(val, key, list);
+                if (r) ret[key] = r;
+            } catch (e) {
+                //E.printStackTrace only accepts one parameter
+                e.printStackTrace(stackStack);
+            }
+        });
+    } else {
+        C.each(obj, function(val, key, list) {
+            var r = fn(val, key, list);
+            if (r) ret[key] = r;
+        });
+    }
+    return ret;
+};
+
+/**
+ * Just iterate the input object
+ * @type {function((Array|Object), Function=): (Array|Object)}
+ */
+I.every = C.each;
+
+/**
+ * Iterator function with early quit.
+ *
+ * @static
+ * @memberof H
+ * @param {Array|Object} data data to iterate
+ * @param {Function} fn function to yield result of each input
+ * @param {Function} callable function to check if the itearting should be terminated
+ * @param {Array} [stackStack] stack trace stack
+ */
+I.until = function(data, fn, callable, stackStack) {
+    stackStack = stackStack || [];
+    var ret = I.resultWrapper(data);
+    //TODO: does it work? (not including `core` module here due to dependency error)
+    //TODO: remove dependency on static named variable `H`
+    if (H.debug) {
+        C.find(data, function(val, key, list) {
+            try {
+                var r = fn(val, key, list);
+                if (r) ret[key] = r;
+                return callable(val, key, list);
+            } catch (e) {
+                e.printStackTrace('Nested error', stackStack);
+            }
+        });
+    } else {
+        C.find(data, function(val, key, list) {
+            var r = fn(val, key, list);
+            if (r) ret[key] = r;
+            return callable(val, key, list);
+        });
+    }
+    return ret;
+};
+
+/**
+ * Iterate all keys on the object. (indices on arrays)
+ * Would prefer H.each(H.keys())
+ *
+ * @static
+ * @memberof H
+ * @param {Array|Object} data data to iterate
+ * @param {Function} callable iteratee to yield result
+ */
+I.eachKey = function(data, callable) {
+    var keys = data;
+    if (!Mini.isArrayLike(data)) {
+        keys = C.keys(data);
+    }
+    var l = keys.length;
+    var n = keys.length;
+    for (l++; --l;) {
+        callable(n - l, keys[n - l], data);
+    }
+};
+
+/**
+ * Iterate on a range of numbers.
+ *
+ * @static
+ * @memberof H
+ * @return {Array|Object}
+ * @example
+ *
+ * H.eachIndex(4, function() {}) => 4x undefined
+ * H.eachIndex(1, 4, function() {}) => 3x undefined
+ * H.eachIndex(2, 4, 2, function() {}) => 1x undefined
+ */
+I.eachIndex = function() {
+    var length = arguments.length;
+    //accept 2-4 arguments only.
+    if (length < 2 || length > 4) {
+        return;
+    }
+    var start = length > 2 ? arguments[0] : 0;
+    var end = length === 2 ? arguments[0] : arguments[1];
+    var step = length >= 4 ? arguments[2] : 1;
+    var iteratee = arguments[length - 1];
+
+    //end, iteratee
+    //start, end, iteratee
+    //start, end, step, iteratee
+    var rs = I.resultWrapper([]);
+    var i = 0;
+
+    if (step === 1) {
+        //short for is faster than dowhile
+        var ci = start;
+        for (i = end - start + 1; --i;) {
+            rs[ci] = iteratee(ci, ci);
+            ci++;
+        }
+        return rs;
+    } else {
+        do {
+            rs[start] = iteratee(start, i++);
+
+            start += step;
+        } while (start <= end);
+        return rs;
+    }
+};
+
+/**
+ * Iterator discarding values.
+ *
+ * @param {Array|Object|Function} ele object to iterate
+ * @param {Function} fn iteratee to produce values
+ */
+I.filter = function(ele, fn) {
+    if (fn === undefined) {
+        fn = ele;
+        ele = this;
+    }
+    return I.each(ele, function(o) {
+        if (fn(o)) {
+            return o;
+        }
+    });
+};
+
+module.exports = I;
+},{"../mini":2,"lodash/core":22}],10:[function(require,module,exports){
+/*
+ * Math-Related Module
+ */
+
+var Ms = {};
+var C = require('../mini');
+var H = require('./stacktrace');
+
+/**
+ * Sum a list of number
+ *
+ * @static
+ * @memberof H
+ * @param {Array} list
+ * @returns {number}
+ */
+Ms.sum = function(list) {
+    if (!C.isArrayLike(list)) return 0;
+    var sum = 0;
+    var length = list.length;
+    length++;
+    while(--length) {
+        sum += list[length - 1];
+    }
+    if (isNaN(sum)) {
+        H.printStackTrace("NaN!");
+        return 0;
+    }
+    return sum;
+};
+
+/**
+ * Hypot polyfill.
+ *
+ * @static
+ * @memberof H
+ * @type {Function}
+ */
+Ms.hypot = Math.hypot || function() {
+        return Math.sqrt(Ms.sum(C.arrayEach(arguments, function(arg) {
+            return arg * arg;
+        })));
+    };
+
+/**
+ * Log2 polyfill
+ *
+ * @static
+ * @memberof H
+ * @type {Function}
+ */
+Ms.log2 = Math.log2 || function(number) {
+        return Math.log(number) / Math.log(2);
+    };
+
+/**
+ * Check if a variable between given two numbers
+ *
+ * @static
+ * @memberof H
+ * @param {Number} v number to check
+ * @param {Number} v0 margin 1
+ * @param {Number} v1 margin 2
+ * @returns {boolean}
+ */
+Ms.varInRange = function(v, v0, v1) {
+    return (v - v0) * (v - v1) < 0;
+};
+
+/**
+ * Check if a point [x, y] is inside the rectangle of two given points.
+ *
+ * @static
+ * @memberof H
+ * @param {Object} p point to check
+ * @param {Object} p0 point 1
+ * @param {Object} p1 point 2
+ * @returns {boolean}
+ */
+Ms.pointInRect = function(p, p0, p1) {
+    var result = true;
+    C.arrayEach(p, function(ele, index) {
+        result &= Ms.varInRange(ele, p0[index], p1[index]);
+    });
+    return result;
+};
+
+/**
+ * Extract max value. Object not supported
+ *
+ * @static
+ * @memberof H
+ * @param list
+ * @returns {number}
+ */
+Ms.max = function(list) {
+    var mx = -Infinity;
+    C.arrayEach(list, function(v) {
+        if (v > mx) mx = v;
+    });
+    return mx;
+};
+
+/**
+ * Extract min value. Object not supported
+ *
+ * @static
+ * @memberof H
+ * @param list
+ * @returns {number}
+ */
+Ms.min = function(list) {
+    var mx = Infinity;
+    C.arrayEach(list, function(v) {
+        if (v < mx) mx = v;
+    });
+    return mx;
+};
+
+//dependes on `keys` and `values`
+// Ms.maxValue = function(obj) {
+//     return Ms.max(C.values(obj));
+// };
+//
+// Ms.minValue = function(obj) {
+//     return Ms.min(C.values(obj));
+// };
+
+/*
+ * Individual Functions
+ */
+
+/**
+ * Degree to radian
+ *
+ * @static
+ * @memberof H
+ * @param {Number} degree degree value
+ * @returns {number} radian value
+ */
+Ms.degToRad = function(degree) {
+    return (degree / 180.0) * Math.PI;
+};
+
+/**
+ * Radian to degree
+ *
+ * @static
+ * @memberof H
+ * @param {Number} rad radian value
+ * @returns {number} degree value
+ */
+Ms.radToDeg = function(rad) {
+    return rad * 180.0 / Math.PI;
+};
+
+/**
+ * Normalize degree value to [0, 360)
+ *
+ * @static
+ * @memberof H
+ * @param {Number} degree degree value
+ * @returns {number} normalized degree value
+ */
+Ms.standardizeDegree = function(degree) {
+    var floor = Math.floor(degree / 360.0);
+    return degree - floor * 360.0;
+};
+
+/**
+ * Normalize radian value to [0, 2*PI)
+ *
+ * @static
+ * @memberof H
+ * @param {Number} rad radian value
+ * @returns {number} normalized radian value
+ */
+Ms.standardizeRad = function(rad) {
+    var floor = Math.floor(rad / (2 * Math.PI));
+    return rad - floor * 2 * Math.PI;
+};
+
+/**
+ * Convert point in rectangle coordinates to polar coordinates. (in radian)
+ *
+ * @static
+ * @memberof H
+ * @param {Array} coor rect coordinates
+ * @returns {*[]} polar coordinates
+ */
+Ms.rectToPolar = function(coor) {
+    var r = Ms.hypot(coor[0], coor[1]);
+    var absTheta = Math.atan2(Math.abs(coor[1]), Math.abs(coor[0])); // in rad
+    var signal = coor[0] * coor[1] < 0;
+    if (coor[0] >= 0) {
+        if (coor[1] >= 0) {
+            return [r, absTheta];
+        } else {
+            return [r, 2 * Math.PI - absTheta];
+        }
+    } else {
+        return [r, Math.PI + (signal ? -1 : 1) * absTheta];
+    }
+};
+
+/**
+ * Convert point in polar coordinates to rectangle coordinates.
+ *
+ * @static
+ * @memberof H
+ * @param {Array} coor polar coordinates
+ * @returns {*[]} rectangle coordinates
+ */
+Ms.polarToRect = function(coor) {
+    var cA = Math.cos(coor[1]);
+    var sA = Math.sin(coor[1]);
+    return [coor[0] * cA, coor[0] * sA];
+};
+
+/**
+ * Convert distance in latitude to meter
+ *
+ * @static
+ * @memberof H
+ * @param {Number} delta distance represented in latitude
+ * @returns {number} distance in meter
+ */
+Ms.latToMeter = function(delta) {//in meters
+    return 40008000 * delta / 360.0;
+};
+
+/**
+ * Convert distance in longtitude around some latitude to meter
+ *
+ * @static
+ * @memberof H
+ * @param {Number} lat latitude
+ * @param {Number} delta distance in longtitude
+ * @returns {number} distance in meter
+ */
+Ms.lngToMeterAtLat = function(lat, delta) {
+    return delta * Math.cos(Math.PI * Math.abs(lat) / 180) * 40075040 / 360.0;
+};
+
+/**
+ * Convert distance in meter to distance in latitude
+ *
+ * @static
+ * @memberof H
+ * @param {Number} meter distance in meter
+ * @returns {number} distance in latitude
+ */
+Ms.meterToLat = function(meter) {
+    return 360.0 * meter / 40008000;
+};
+
+/**
+ * Convert distance in meter to distance in longtitude around some latitude
+ *
+ * @static
+ * @memberof H
+ * @param {Number} lat latitude
+ * @param {Number} meter distance in meter
+ * @returns {number} distance in longtitude
+ */
+Ms.meterToLngAtLat = function(lat, meter) {
+    return 360.0 * meter / (40075040 * Math.cos(Math.PI * Math.abs(lat) / 180));
+};
+
+/**
+ * Calculate the distance between two points on earth.
+ * Points are represented in 2-element arrays ([longtitude, latitude])
+ * Assuming the earth a perfect sphere.
+ *
+ * @static
+ * @memberof H
+ * @param {Array} p0 point 1
+ * @param {Array} p1 point 2
+ * @returns {number} distance in meters
+ */
+Ms.distOnEarth = function(p0, p1) {
+    //[lng, lat], assuming earth a sphere
+    return Math.PI * 6400000 * Math.acos(Math.cos(p0[0] - p1[0]) + Math.cos(p0[1] - p1[1]) - 1) / 180.0;
+};
+
+module.exports = Ms;
+},{"../mini":2,"./stacktrace":15}],11:[function(require,module,exports){
+/*
+ * Object-Related Module
+ */
+
+var O = {};
+require('./stacktrace');
+
+//variable type to be checked
+/**
+ * Checks if the target string contains a charsequence.
+ *
+ * @static
+ * @memberof H
+ * @param {String} str target string
+ * @param {String} sub substring to check
+ * @returns {boolean}
+ */
+O.strContains = function(str, sub) {
+    return str.indexOf(sub) !== -1;
+};
+
+/**
+ * Checks if the target string contains a charsequence ignoring the char case.
+ *
+ * @static
+ * @memberof H
+ * @param {String} str target string
+ * @param {String} sub substring to check
+ * @returns {boolean}
+ */
+O.strContainsIgnoreCase = function(str, sub) {
+    return str.toLowerCase().indexOf(sub.toLowerCase()) !== -1;
+};
+
+O.parseJson = function(json) {
+    try {
+        return JSON.parse(decodeURI(json));
+    } catch (e) {
+        try {
+            return JSON.parse(json);
+        } catch (e) {
+            e.printStackTrace();
+        }
+    }
+    return undefined;
+};
+
+/**
+ * Clones the object via JSON.
+ * Should be used on small plain javascript objects only.
+ *
+ * @static
+ * @memberof H
+ * @param {Array|Object} obj
+ * @return {Object} cloned object
+ */
+O.cloneByParse = function(obj) {
+    //for small objects only
+    return JSON.parse(JSON.stringify(obj));
+};
+
+module.exports = O;
+},{"./stacktrace":15}],12:[function(require,module,exports){
+var root = require('./detect').root;
+
+root.requestAnimationFrame = (function() {
+    return root.webkitRequestAnimationFrame ||
+        root.requestAnimationFrame ||
+        root.mozRequestAnimationFrame ||
+        root.oRequestAnimationFrame ||
+        root.msRequestAnimationFrame ||
+        function(callback/*, element*/){
+            return root.setTimeout(callback, 1000 / 60);
+        };
+})();
+},{"./detect":7}],13:[function(require,module,exports){
+/*
+ * ResultSet Module
+ */
+var RS = {};
+var H = require('lodash/core');
+var ARS = require('./abstractresultset');
+var I = require('./iterator');
+
+var RsIdentifier = '__isRS__';
+
+//the default ResultSet should not exclude any values
+//noinspection JSUnusedLocalSymbols
+function checker(val) {
+    return true;
+}
+
+//default channel doesn't need filter
+ARS.registerChannel(RsIdentifier, [Array.prototype, Object.prototype], checker);
+
+function registerComponent(name, func) {
+    ARS.registerChannelFunction(RsIdentifier, name, function(preCheck) {
+        //r-w risky?
+        checker = preCheck;
+        return func;
+    });
+}
+
+function wrapFunction(fn) {
+    return function() {
+        if (checker(arguments[0])) {
+            return fn.apply(this, arguments);
+        }
+    }
+}
+
+/*
+ * ResultSet Operations
+ */
+/**
+ * Iterates an Array or Object, promise version
+ *
+ * @param {*} fn iterator function
+ * @returns {Array|Object} result composed by return statement
+ */
+function each(fn) {
+    //patch `fn`
+    arguments[0] = wrapFunction(arguments[0]);
+    return I.each.apply(H, [this].concat(Array.prototype.slice.call(arguments)));
+}
+
+/**
+ * Iterates an Array or Object, return the filtered result, promise ver
+ *
+ * @param {Function} fn filter function
+ * @returns {Array|Object} filtered result
+ */
+function filter(fn) {
+    fn = wrapFunction(fn);
+    return I.each(this, function(o) {
+        if (fn(o)) {
+            return o;
+        }
+    });
+}
+
+/**
+ * Sort an Array or values of an Object, return the sorted array, promise ver
+ *
+ * @param {Function} fn sort function
+ * @returns {*|Array} sorted array
+ */
+function sortBy(fn) {
+    fn = wrapFunction(fn);
+    return H.sortBy(this, fn);
+}
+
+/**
+ * Returns the value array of an object or itself of an array.
+ *
+ * @returns {*|Array}
+ */
+function toArray() {
+    return H.values(this);
+}
+
+/**
+ * Return grouped values by a grouping function of an array or an object
+ *
+ * @param {Function} fn grouping function
+ * @returns {*}
+ */
+function groupBy(fn) {
+    fn = wrapFunction(fn);
+    return H.groupBy(this, fn);
+}
+
+/**
+ * Joins an array or the value array of an object
+ *
+ * @param {String} separator result separator
+ * @returns {string} joined string
+ */
+function join(separator) {
+    return H.values(this).join(separator || "");
+}
+
+/**
+ * Sums all numbers in an array or value array of an object
+ *
+ * @returns {number} sum value
+ */
+function sum() {
+    var s = 0;
+    I.each(this || [], function(v) {
+        var nv = H.isInteger(v) ? parseInt(v) : (H.isFloat(v) ? parseFloat(v) : NaN);
+        if (!isNaN(nv)) {
+            s += nv;
+        }
+    });
+    return s;
+}
+
+/**
+ * Returns the length of an array or the value array of an object
+ *
+ * @returns {Number} length
+ * @constructor
+ */
+function Length() {
+    return H.values(this).length;
+}
+
+/**
+ * Returns the array itself or the value array of an object
+ *
+ * @returns {*|Array} result array
+ */
+function values() {
+    return H.values(this);
+}
+
+/**
+ * Returns the key array of an object or the index array of an array
+ *
+ * @returns {*|Array} key array
+ */
+function keys() {
+    return H.keys(this);
+}
+
+registerComponent("each",    each);
+registerComponent("filter",  filter);
+registerComponent("sortBy",  sortBy);
+registerComponent("toArray", toArray);
+registerComponent("groupBy", groupBy);
+registerComponent("join",    join);
+registerComponent("sum",     sum);
+registerComponent("Length",  Length);
+registerComponent("values",  values);
+registerComponent("keys",    keys);
+
+/**
+ * Wrap an object to default ResultSet
+ *
+ * @static
+ * @memberof H
+ * @param {Array|Object} v anything to wrap
+ * @returns {*} wrapped ResultSet object
+ */
+var wrap = ARS.wrapperGen(RsIdentifier);
+
+RS.wrap = wrap;
+/**
+ * @deprecated
+ * @type {wrap}
+ */
+RS.fastWrap = wrap;
+
+module.exports = RS;
+},{"./abstractresultset":3,"./iterator":9,"lodash/core":22}],14:[function(require,module,exports){
+var S = {};
+
+var H = require('./detect');
+var root = H.root;
+
+var noop = function() {
+    return function() {};
+};
+
+var navigator = H.root.navigator || {userAgent: ""};
+
+/**
+ * Add property to object
+ *
+ * @static
+ * @memberof H
+ * @param {Object} object to operate
+ * @param {String} key field to fill in
+ * @param {Object} descriptor property descriptor
+ */
+var addProperty = noop();
+//defineProperty in IE8 only accepts DOM elements as parameters, while in Safari 5 it's opposite
+if (!Object.defineProperty || (0 < H.getIE() <= 8 && navigator.userAgent.indexOf('MSIE') !== -1)) {
+    addProperty = function(instance, k, descriptor) {
+        instance[k] = descriptor.value;
+
+        if (isObject(descriptor[k])) {
+            instance[k].ienumerable = !descriptor.enumerable;
+        } else {
+            if (!instance[k].ienumerables) {
+                instance[k].ienumerables = [];
+            }
+            if (!descriptor.enumerable && instance[k].ienumerables instanceof Array) {
+                instance[k].ienumerables.push(k);
+            } else if (instance['ienumerables']) {
+                instance['ienumerables'][k] = undefined;
+                delete instance['ienumerables'][k];
+            }
+        }
+
+        //configurable, writable to be impl.
+    };
+
+    addProperty.__userDefined__ = true;
+
+    if (!Object.defineProperty) Object.defineProperty = addProperty;
+} else {
+    addProperty = Object.defineProperty;
+}
+
+/**
+ * Create object and copy all properties into it.
+ *
+ * @static
+ * @memberof H
+ * @param {Object} base base class
+ * @param {Object} reference object to copy properties from
+ * @example
+ *
+ * var obj = H.createObject(Object.prototype, {a: 1, b: 2})
+ */
+var createObject = function() {
+    function F() {}
+
+    return function(o, p) {
+        F.prototype = o;
+        var instance = new F();
+        if (p) {
+            //p is a descriptor with key name k
+            //is this enough for replacing H.each(H.keys ?
+            for (var k in p) {
+                if (p.hasOwnProperty(k)) addProperty(instance, k, p[k]);
+            }
+        }
+        return instance;
+    };
+}();
+
+//emulate legacy getter/setter API using ES5 APIs
+try {
+    if (!Object.prototype.__defineGetter__ &&
+        addProperty({},"x",{get: function(){return true;}}).x) {
+        addProperty(Object.prototype, "__defineGetter__",
+            {enumerable: false, configurable: true,
+                value: function(name,func)
+                {addProperty(this,name,
+                    {get:func,enumerable: true,configurable: true});
+                }});
+        addProperty(Object.prototype, "__defineSetter__",
+            {enumerable: false, configurable: true,
+                value: function(name,func)
+                {addProperty(this,name,
+                    {set:func,enumerable: true,configurable: true});
+                }});
+    }
+} catch(defPropException) {/*Do nothing if an exception occurs*/}
+
+// Avoid `console` errors in browsers that lack a console.
+(function() {
+    var method;
+    var noop = function () {};
+    var methods = [
+        'assert', 'clear', 'count', 'debug', 'dir', 'dirxml', 'error',
+        'exception', 'group', 'groupCollapsed', 'groupEnd', 'info', 'log',
+        'markTimeline', 'profile', 'profileEnd', 'table', 'time', 'timeEnd',
+        'timeline', 'timelineEnd', 'timeStamp', 'trace', 'warn'
+    ];
+    var length = methods.length;
+    var console = root.console || {};
+    if (!root.console) root.console = console;
+
+    while (length--) {
+        method = methods[length];
+
+        // Only stub undefined methods.
+        if (!console[method]) {
+            console[method] = noop;
+        }
+    }
+}());
+
+S.addProperty = addProperty;
+S.createObject = createObject;
+
+module.exports = S;
+},{"./detect":7}],15:[function(require,module,exports){
+var C = {};
+
+var Mini = require('../mini');
+
+var log = (console.error || console.log);
+
+/**
+ * Generate stack trace string. (separated by `\n`)
+ *
+ * @static
+ * @memberof H
+ * @param {String} [title]
+ * @returns {string} stack trace string
+ */
+C.getStackTrace = function(title) {
+    var callstack = "Referenced From: " + (title || "");
+    var e = title instanceof Error ? title : new Error(callstack);
+    var split = e.stack.split('\n');
+    if (split.length > 1) {
+        var t = split[0];
+        //remove getStackTrace itself
+        split.shift();
+        split.shift();
+        split.unshift(t);
+        return split.join('\n');
+    }
+    return e.stack;
+};
+
+var DefaultNestedTitle = "Nested error:";
+var DefaultTitle = "Error:";
+
+/**
+ * Print stack trace stack.
+ *
+ * @static
+ * @memberof H
+ * @param {String|Error} [title] title or error of current layer
+ * @param {Array} [stackStack] stack trace stack (possibly)
+ * @example
+ *
+ * usage:
+ * H.printStackTrace(string/error, stackStack)
+ * H.printStackTrace(string/error)
+ * H.printStackTrace(stackStack)
+ * H.printStackTrace()
+ * variant:
+ * error.printStackTrace() -> printStackTrace(error, [])
+ */
+C.printStackTrace = function(title, stackStack) {
+    stackStack = stackStack || [];
+    if (Mini.isArrayLike(title)) {
+        //noinspection JSValidateTypes for arguments
+        stackStack = title;
+        if (stackStack.length) {
+            title = DefaultNestedTitle;
+        } else {
+            title = DefaultTitle;
+        }
+    }
+    title = title || DefaultTitle;
+    stackStack.unshift(C.getStackTrace(title));
+    var n = stackStack.length;
+    var l = stackStack.length;
+    for (l++; --l;) {
+        log(stackStack[n - l]);
+    }
+};
+
+/**
+ * Print string with stack trace in debug mode.
+ *
+ * @static
+ * @memberof H
+ * @param {String|Error} [d] content to print
+ * @param {Array} [stackTrace] stack trace stack
+ */
+C.errlog = function(d, stackTrace) {
+    if (C.debug) {
+        C.printStackTrace(d);
+        if (stackTrace && !C.isArrayLike(stackTrace)) {
+            console.error("Referenced From: " + stackTrace);
+        } else if (stackTrace && C.isArrayLike(stackTrace)) {
+            for (var i = stackTrace.length - 1; i > -1; i--) {
+                if (stackTrace[i]) console.error("Referenced From: " + stackTrace[i]);
+            }
+        }
+    }
+};
+
+function printStackTrace(stackStack) {
+    C.printStackTrace(this, stackStack);
+}
+
+Error.prototype.getStackTrace = C.getStackTrace;
+Error.prototype.printStackTrace = printStackTrace;
+
+module.exports = C;
+},{"../mini":2}],16:[function(require,module,exports){
+var C = {};
+var H = require('./stacktrace');
+var Detect = require('./detect');
+
+if (Detect.isNodejs) {
+    Detect.root.__sessionStorage = {};
+
+    C.setItem = setItemFallback;
+    C.getItem = getItemFallback;
+    C.removeItem = removeItemFallback;
+} else if (Detect.root.sessionStorage) try {
+    sessionStorage.setItem('test', '1');
+    sessionStorage.removeItem('test');
+
+    /**
+     * Store value to session storage.
+     * In node.js environment, data will be stored in global variable `__sessionStorage` (lost on exit).
+     * In browsers without sessionStorage support, will try cookie first.
+     *
+     * @static
+     * @memberof H
+     * @param key
+     * @param value
+     */
+    C.setItem = function(key, value) {
+        sessionStorage.removeItem(key);
+        sessionStorage.setItem(key, value);
+    };
+
+    /**
+     * Deprecated store value to session storage.
+     *
+     * @static
+     * @memberof H
+     * @deprecated
+     * @param key
+     * @param value
+     * @type {Function}
+     */
+    C.secAddItem = C.setItem;
+
+    /**
+     * Remove stored value of key in session storage.
+     *
+     * @static
+     * @memberof H
+     * @param key
+     */
+    C.removeItem = function(key) {
+        sessionStorage.removeItem(key);
+    };
+
+    /**
+     * Retrieve stored value in session storage.
+     *
+     * @static
+     * @memberof H
+     * @param key
+     */
+    C.getItem = function(key) {
+        return sessionStorage.getItem(key);
+    };
+
+} catch (e) {
+    H.printStackTrace('Session Storage Not Supported');
+
+    C.secAddItem = function(key, value) {
+        setCookie(key, value, 1);
+    };
+
+    C.removeItem = function(key) {
+        setCookie(key, null, 0);
+    };
+
+    C.getItem = function(key) {
+        return getCookie(key);
+    };
+}
+
+function setCookie(key, value, days) {
+    var date = new Date();
+    date.setTime(date.getTime() + days * 86400000);
+    document.cookie = key + "=" + value + "; expires=" + date.toUTCString();
+}
+
+function getCookie(key) {
+    var regex = new RegExp('^\\s*' + key + '=');
+    var splits = document.cookie.split(';');
+    for (var i = 0; i < splits.length; i++) {
+        var s = splits[i];
+        var d = s.match(regex);
+        if (d !== null && d.length !== 0) {
+            return s.replace(regex, '');
+        }
+    }
+}
+
+function setItemFallback(key, value) {
+    Detect.root.__sessionStorage[key] = value;
+}
+
+function getItemFallback(key) {
+    return Detect.root.__sessionStorage[key];
+}
+
+function removeItemFallback(key) {
+    Detect.root.__sessionStorage[key] = undefined;
+}
+
+module.exports = C;
+},{"./detect":7,"./stacktrace":15}],17:[function(require,module,exports){
+var C = {};
+
+C.now = Date.now;
+
+/**
+ * Run a function, count the time consumed.
+ *
+ * @static
+ * @memberof H
+ * @param {Function} cb function to run
+ * @returns {number} time in millis
+ */
+C.test = function(cb) {
+    var o = C.now();
+    cb();
+    var d = C.now() - o;
+    console.log(d);
+    return d;
+};
+
+/**
+ * Run a function, and record it in "Profile" tab in chromium.
+ *
+ * @static
+ * @memberof H
+ * @param {Function} cb function to run
+ * @param {String} title title of this run
+ * @returns {number} time in millis
+ */
+C.profile = function(cb, title) {
+    console.profile(title || "Profile");
+    var o = C.now();
+    cb();
+    var d = C.now() - o;
+    //noinspection JSUnresolvedFunction
+    console.profileEnd(title || "Profile");
+    return d;
+};
+
+/**
+ * Do something for some times
+ *
+ * @static
+ * @memberof H
+ * @param {Function} cb function to run
+ * @param {Number} times times function will be executed
+ */
+C.repeat = function(cb, times) {
+    if (times > 0) {
+        do {
+            cb();
+        } while(times--);
+    }
+};
+
+/**
+ * Test some method and record the time consumption for several times.
+ *
+ * @static
+ * @memberof H
+ * @param {Function} cb function to run
+ * @param {Number} times times function will be executed
+ */
+C.testTimes = function(cb, times) {
+    C.test(function() {
+        C.repeat(cb, times);
+    });
+};
+
+/**
+ * Profile some method for several times.
+ *
+ * @static
+ * @memberof H
+ * @param {Function} cb function to run
+ * @param {Number} times times function will be executed
+ * @param {String} title title of this run
+ */
+C.profileTimes = function(cb, times, title) {
+    C.profile(function() {
+        C.repeat(cb, times);
+    }, title);
+};
+
+module.exports = C;
+},{}],18:[function(require,module,exports){
+var C = {};
+
+var I = require('./iterator');
+var D = require('./detect');
+
+var location = D.root.location || "";
+
+C.QueryString = function(item){
+    var svalue = location.search.match(new RegExp("[\?\&]" + item + "=([^\&]*)(\&?)","i"));
+    return svalue ? svalue[1] : svalue;
+};
+
+/**
+ * @static
+ * @memberof H
+ * @deprecated
+ */
+C.Request = {
+    QueryString: C.QueryString
+};
+
+/**
+ * Generate URL with GET param string
+ *
+ * @static
+ * @memberof H
+ * @param {String} server prefix string (domain)
+ * @param {String} action path of file requests
+ * @param {Object} params get param object
+ * @returns {string} URL string
+ * @example
+ *
+ * H.getUrlByParams("http://abc.def/", "path/of/file", {a: 1})
+ * =>
+ * "http://abc.def/path/of/file?a=1"
+ */
+C.getUrlByParams =  function(server, action, params) {
+    var paramUrl = "";
+    I.each(params || {}, function(param, key) {
+        paramUrl += "&" + key + "=";
+        var p = "";
+        if (param instanceof Array) {
+            p = "[";
+            var tr = "";
+            I.each(param, function(val) {
+                tr += ",";
+                if (val instanceof Boolean ||
+                    val instanceof String ||
+                    val instanceof Number ||
+                    typeof val === "string" ||
+                    typeof val === "number") {
+                    tr += "\"" + val + "\"";
+                } else if (val) {
+                    tr += val;
+                }
+            });
+            p += tr.substr(1) + "]";
+        } else {
+            p = param;
+        }
+        paramUrl += p;
+    });
+    return (server + action + "?" + paramUrl.substr(1));
+};
+
+/**
+ * Generate simple param string from an object
+ *
+ * @static
+ * @memberof H
+ * @param {Object} data param object
+ * @returns {string}
+ * @example
+ *
+ * H.param({a:1, b:2})
+ * =>
+ * "a=1&b=2"
+ */
+C.param = function(data) {
+    var s = [], add = function(k, v) {
+        s[s.length] = encodeURIComponent(k) + "=" + encodeURIComponent(v);
+    };
+
+    I.each(data, function(o, k) {
+        add(k, o);
+    });
+
+    return s.join("&").replace(/%20/g, "+");
+};
+
+module.exports = C;
+},{"./detect":7,"./iterator":9}],19:[function(require,module,exports){
+var C = {};
+
+/**
+ * Generate Uuid
+ *
+ * @static
+ * @memberof H
+ * @param {Number} [len] length of target string, not specified by default
+ * @param {Number} [radix] when length specified, limit possible characters in the result
+ * @returns {string}
+ */
+C.uuid = function (len, radix) {
+    var chars = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'.split('');
+    var uuid = [], i;
+    radix = radix || chars.length;
+
+    if (len) {
+        // Compact form
+        for (i = 0; i < len; i++) uuid[i] = chars[0 | Math.random()*radix];
+    } else {
+        // rfc4122, version 4 form
+        var r;
+        // rfc4122 requires these characters
+        uuid[8] = uuid[13] = uuid[18] = uuid[23] = '-';
+        uuid[14] = '4';
+        // Fill in random data.  At i==19 set the high bits of clock sequence as
+        // per rfc4122, sec. 4.1.5
+        for (i = 0; i < 36; i++) {
+            if (!uuid[i]) {
+                r = 0 | Math.random()*16;
+                uuid[i] = chars[(i == 19) ? (r & 0x3) | 0x8 : r];
+            }
+        }
+    }
+    return uuid.join('');
+};
+
+/**
+ * Generate Uuid in Default Format
+ *
+ * @static
+ * @memberof H
+ * @returns {string}
+ */
+C.fastUuid = function() {
+    var chars = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'.split('');
+    var uuid = new Array(36), rnd=0, r;
+    for (var i = 0; i < 36; i++) {
+        if (i === 8 || i === 13 || i === 18 || i === 23) {
+            uuid[i] = '-';
+        } else if (i === 14) {
+            uuid[i] = '4';
+        } else {
+            if (rnd <= 0x02) rnd = 0x2000000 + (Math.random()*0x1000000)|0;
+            r = rnd & 0xf;
+            rnd = rnd >> 4;
+            uuid[i] = chars[(i === 19) ? (r & 0x3) | 0x8 : r];
+        }
+    }
+    return uuid.join('');
+};
+
+module.exports = C;
+},{}],20:[function(require,module,exports){
 /**
  * The base implementation of `_.property` without support for deep paths.
  *
@@ -92,7 +2092,7 @@ function baseProperty(key) {
 
 module.exports = baseProperty;
 
-},{}],5:[function(require,module,exports){
+},{}],21:[function(require,module,exports){
 var baseProperty = require('./_baseProperty');
 
 /**
@@ -110,7 +2110,7 @@ var getLength = baseProperty('length');
 
 module.exports = getLength;
 
-},{"./_baseProperty":4}],6:[function(require,module,exports){
+},{"./_baseProperty":20}],22:[function(require,module,exports){
 (function (global){
 /**
  * @license
@@ -4100,7 +6100,7 @@ module.exports = getLength;
 }.call(this));
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{}],7:[function(require,module,exports){
+},{}],23:[function(require,module,exports){
 var getLength = require('./_getLength'),
     isFunction = require('./isFunction'),
     isLength = require('./isLength');
@@ -4136,7 +6136,7 @@ function isArrayLike(value) {
 
 module.exports = isArrayLike;
 
-},{"./_getLength":5,"./isFunction":8,"./isLength":9}],8:[function(require,module,exports){
+},{"./_getLength":21,"./isFunction":24,"./isLength":25}],24:[function(require,module,exports){
 var isObject = require('./isObject');
 
 /** `Object#toString` result references. */
@@ -4180,7 +6180,7 @@ function isFunction(value) {
 
 module.exports = isFunction;
 
-},{"./isObject":10}],9:[function(require,module,exports){
+},{"./isObject":26}],25:[function(require,module,exports){
 /** Used as references for various `Number` constants. */
 var MAX_SAFE_INTEGER = 9007199254740991;
 
@@ -4218,7 +6218,7 @@ function isLength(value) {
 
 module.exports = isLength;
 
-},{}],10:[function(require,module,exports){
+},{}],26:[function(require,module,exports){
 /**
  * Checks if `value` is the [language type](https://es5.github.io/#x8) of `Object`.
  * (e.g. arrays, functions, objects, regexes, `new Number(0)`, and `new String('')`)
@@ -4250,2030 +6250,23 @@ function isObject(value) {
 
 module.exports = isObject;
 
-},{}],11:[function(require,module,exports){
+},{}],27:[function(require,module,exports){
+var DOM = require('./src/cssselector');
+
+var Core = require('coreutil/core');
+var RS = require('./src/domresultset');
+var Attr = require('./src/cssattribute');
+
+Core.extend(Core, RS);
+Core.extend(Core, Attr);
+
+Core.root.H$ = DOM;
+
+module.exports = DOM;
+},{"./src/cssattribute":28,"./src/cssselector":30,"./src/domresultset":31,"coreutil/core":1}],28:[function(require,module,exports){
 /*
- * ResultSet: Array or Element, they share the same filter/checker
+ * CSS Attribute Operation Basic
  */
-
-/**
- * Abstract ResultSet Module
- *
- * @static
- * @memberof H
- * @type {Object}
- */
-var ARS = {};
-
-var Mini = require('../mini');
-var H = require('./shims');
-
-ARS.modules = {};
-ARS.checkTargets = {};
-ARS.checkers = {};
-
-var MODULE = '__Module__';
-
-/**
- * Register a ResultSet channel
- * @param {String} identifier ResultSet channel identifier
- * @param {Array} targets ResultSet element prototypes, should always contains Array.prototype
- * @param {Function} valuePrechecker value validity prechecker function
- */
-ARS.registerChannel = function(identifier, targets, valuePrechecker) {
-    ARS.modules[identifier] = {};
-    ARS.checkTargets[identifier] = targets;
-    ARS.checkers[identifier] = valuePrechecker;
-
-    Mini.arrayEach(targets || [], function(target) {
-        if (!target[MODULE]) {
-            H.addProperty(target, MODULE, Mini.hiddenProperty(MODULE));
-        }
-    });
-};
-
-/**
- * Inner preCheck function. used to check validity of values
- *
- * @param {*} object value to check
- * @returns {boolean}
- */
-function preCheck(object) {
-    return !!(ARS.checkers[object[MODULE] || ""] || function() {})(object);
-}
-
-/**
- * Register ResultSet process functions.
- *
- * TODO: integrate ResultSet.registerComponent into this function (maybe some dependency injection?)
- *
- * @param {String} channel channel identifier
- * @param {String} name target function mount point
- * @param {Function} funcGen function generator, which produces a function with checker
- * function injected. This provides ability of checking content validity to target functions.
- */
-ARS.registerChannelFunction = function(channel, name, funcGen) {
-    Mini.arrayEach(ARS.checkTargets[channel] || [], function(target) {
-        if (target[name]) {
-            //exist, do nothing. cuz preChecker is relative to current module
-        } else {
-            //not exist, add func to target
-            // target[name] = funcGen(ARS.checkers[channel]);
-            H.addProperty(target, name, Mini.hiddenProperty(funcGen(preCheck)));
-        }
-    });
-};
-
-/**
- * Wrapper function generator.
- *
- * @param {String} identifier channel identifier
- * @returns {wrap} wrapper function to wrap any value into specific ResultSet form
- */
-ARS.wrapperGen = function(identifier) {
-    //assuming prototype exists
-    function transform(obj) {
-        if (obj.prototype && obj.prototype.__Module__ && obj.prototype.__Module__ !== identifier) {
-            obj.prototype.__Module__ = identifier;
-        }
-        if (obj.__proto__ && obj.__proto__.__Module__ && obj.__proto__.__Module__ !== identifier) {
-            obj.__proto__.__Module__ = identifier;
-        }
-    }
-
-    function transformArray(obj) {
-        if (Mini.isArrayLike(obj)) {
-            Mini.arrayEach(obj, transformArray);
-        }
-        transform(obj, identifier);
-    }
-
-    /**
-     * Wrap an object to ResultSet
-     *
-     * @static
-     * @param {Array|Object} v anything to wrap
-     * @returns {*} wrapped ResultSet object
-     */
-    function wrap(v) {
-        transformArray(v);
-        return v;
-    }
-
-    return wrap;
-};
-
-module.exports = ARS;
-},{"../mini":3,"./shims":22}],12:[function(require,module,exports){
-var A = {};
-
-/**
- * Reads a 32bit integer from the specific offset in a Uint8Array (big or little endian)
- *
- * @static
- * @memberof H
- * @param {Uint8Array} byteView uint8array object
- * @param {Number} [offset] byte offset
- * @param {boolean} [littleEndian] flag of is or is not little endian
- * @returns {Number}
- * @example
- *
- * H.readInt32(uint8, 0, 1)
- */
-A.readInt32 = function(byteView, offset, littleEndian) {
-    var a0, a1, a2, a3;
-    a0 = byteView[offset];
-    a1 = byteView[offset + 1];
-    a2 = byteView[offset + 2];
-    a3 = byteView[offset + 3];
-    if (littleEndian) {
-        a3 = (a3 << 24) >>> 0;
-        a2 = a2 << 16;
-        a1 = a1 << 8;
-    } else {
-        a0 = (a0 << 24) >>> 0;
-        a1 = a1 << 16;
-        a2 = a2 << 8;
-    }
-    return a3 + a2 + a1 + a0;
-};
-
-/**
- * Reads a 16bit integer from the specific offset in a Uint8Array (big or little endian)
- *
- * @static
- * @memberof H
- * @param {Uint8Array} byteView uint8array object
- * @param {Number} [offset] byte offset
- * @param {boolean} [littleEndian] flag of is or is not little endian
- * @returns {Number}
- * @example
- *
- * H.readInt16(uint8, 0, 1)
- */
-A.readInt16 = function(byteView, offset, littleEndian) {
-    var a0, a1;
-    a0 = byteView[offset];
-    a1 = byteView[offset + 1];
-    if (littleEndian) {
-        a1 = a1 << 8;
-    } else {
-        a0 = a0 << 8
-    }
-    return a0 + a1;
-};
-
-var native = new Int8Array(new Int16Array([1]).buffer)[0] == 1;
-/**
- * Reads a 32bit float from the specific offset in a Uint8Array (big or little endian)
- *
- * @static
- * @memberof H
- * @param {Uint8Array} byteView uint8array object
- * @param {Number} [offset] byte offset
- * @param {boolean} [littleEndian] flag of is or is not little endian
- * @returns {Number}
- * @example
- *
- * H.readFloat32(uint8, 0, 1)
- */
-A.readFloat32 = function(byteView, offset, littleEndian) {
-    var b0, b1, b2, b3, tb1;
-    var sign, exponent, mantissa;
-    if (littleEndian === undefined) littleEndian = native;
-
-    if (littleEndian) {
-        b0 = byteView[offset + 3];
-        b1 = byteView[offset + 2];
-        b2 = byteView[offset + 1];
-        b3 = byteView[offset];
-    } else {
-        b0 = byteView[offset];
-        b1 = byteView[offset + 1];
-        b2 = byteView[offset + 2];
-        b3 = byteView[offset + 3];
-    }
-
-    //to prevent gc
-    tb1 = b0 >> 7;
-    sign = 1 - (2 * tb1);
-
-    b0 = b0 << 1;
-    tb1 = b1 >> 7;
-    b0 = (b0 & 0xff);
-    exponent = (b0 | tb1) - 127;
-
-    tb1 = b1 & 0x7f;
-    tb1 = tb1 << 16;
-    b2 = b2 << 8;
-    mantissa = tb1 | b2 | b3;
-
-    if (exponent === 128) {
-        if (mantissa !== 0) {
-            return NaN;
-        } else {
-            return sign * Infinity;
-        }
-    }
-
-    if (exponent === -127) { // Denormalized
-        return sign * mantissa * Math.pow(2, -126 - 23);
-    }
-
-    return sign * (1 + mantissa * Math.pow(2, -23)) * Math.pow(2, exponent);
-};
-
-module.exports = A;
-},{}],13:[function(require,module,exports){
-var C = require('./detect');
-
-/*
- * Cef Interactions
- */
-//noinspection JSUnresolvedVariable
-var cefQuery = C.root.cefQuery || function() {
-        if (this.debug) console.log(arguments[0]);
-    };
-
-/**
- * Call Cef
- *
- * @static
- * @memberof H
- * @param {string} [req] request string
- * @param {boolean} [persistent]
- * @param {Function} [onsuccess] success callback
- * @param {Function} [onfailure] failed callback
- * @returns {undefined}
- * @example
- *
- * H.callCef("selectItem:1", false, H.noop(), H.noop())
- */
-C.callCef = function(req, persistent, onsuccess, onfailure) {
-    return cefQuery({
-        request: req || "",
-        persistent: !!persistent,
-        onSuccess: onsuccess || function(response) {},
-        onFailure: onfailure || function(err_code, err_msg) {}
-    })
-};
-
-module.exports = C;
-},{"./detect":15}],14:[function(require,module,exports){
-var _ = require('lodash/core');
-
-require('./raf');
-
-var Detect = require('./detect');
-var StackTrace = require('./stacktrace');
-var ArrayBufferOp = require('./arraybuffer');
-var CefInteractions = require('./cef_interactions');
-var Maths = require('./math');
-var Objects = require('./object');
-var Storage = require('./storage');
-var Tester = require('./testers');
-var UrlUtils = require('./urlutils');
-var Uuids = require('./uuid');
-var Events = require('./event');
-// var Iterator = require('./iterator');
-var Shims = require('./shims');
-var ARS = require('./abstractresultset');
-var RS = require('./resultset');
-
-var C = {};
-
-_.extend(C, _);
-_.extend(C, Detect);
-_.extend(C, StackTrace);
-_.extend(C, ArrayBufferOp);
-_.extend(C, CefInteractions);
-_.extend(C, Maths);
-_.extend(C, Objects);
-_.extend(C, Storage);
-_.extend(C, Tester);
-_.extend(C, UrlUtils);
-_.extend(C, Uuids);
-_.extend(C, Events);
-// _.extend(C, Iterator);
-_.extend(C, Shims);
-_.extend(C, RS);
-
-C.abstraceResultSet = ARS;
-
-C.noop = function() {
-    return function() {};
-};
-
-C.now = Date.now;
-
-/*
- * jQuery Shim
- */
-//noinspection JSUnresolvedVariable
-if (C.root.jQuery) {
-    //noinspection JSUnresolvedVariable,JSUnusedGlobalSymbols
-    C.root.jQuery.fn.extend({
-        slideLeftHide: function( speed, callback ) {
-            //noinspection JSUnresolvedFunction
-            this.animate( {
-                width: "hide",
-                paddingLeft: "hide",
-                paddingRight: "hide",
-                marginLeft: "hide",
-                marginRight: "hide"
-            }, speed, callback);
-        },
-        slideLeftShow: function( speed, callback ) {
-            //noinspection JSUnresolvedFunction
-            this.animate( {
-                width: "show",
-                paddingLeft: "show",
-                paddingRight: "show",
-                marginLeft: "show",
-                marginRight: "show"
-            }, speed, callback);
-        }
-    });
-}
-
-//noinspection JSUnusedGlobalSymbols
-C.extend(String.prototype, {
-    replaceAll: function(s1,s2){
-        return this.replace(new RegExp(s1,"gm"),s2);
-    }
-});
-
-/**
- * Produce a random string in a fixed size. Output size is 16 by default.
- *
- * @static
- * @memberof H
- * @param {Number} [size] length of target string
- * @returns {string}
- */
-C.nonceStr = function(size) {
-    var s = "";
-    var c = "0123456789qwertyuiopasdfghjklzxcvbnm";
-    for (var i = 0; i < size || 16; i++) {
-        s += c[parseInt(36 * Math.random())];
-    }
-    return s;
-};
-
-/**
- * Clear timer
- *
- * @static
- * @memberof H
- * @param timer timer to clear
- */
-C.clearTimer = function(timer) {
-    if (timer) {
-        clearInterval(timer);
-    }
-};
-
-module.exports = C;
-},{"./abstractresultset":11,"./arraybuffer":12,"./cef_interactions":13,"./detect":15,"./event":16,"./math":18,"./object":19,"./raf":20,"./resultset":21,"./shims":22,"./stacktrace":23,"./storage":24,"./testers":25,"./urlutils":26,"./uuid":27,"lodash/core":6}],15:[function(require,module,exports){
-/*
- * Env Detection Module
- */
-
-var C = {};
-
-C.isArrayLike = require('lodash/isArrayLike');
-
-/**
- * Check if a value can be parsed to an integer
- *
- * @static
- * @memberof H
- * @param {*} i value to be checked
- * @returns {boolean}
- */
-C.isInteger = function(i) {
-    return  /^-?\d+$/.test(i + "") || /^(-?\d+)e(\d+)$/.test(i + "");
-};
-
-/**
- * Checks if a value can be parsed into a float.
- *
- * @static
- * @memberof H
- * @param {*} v value to be checked
- * @returns {boolean}
- */
-C.isFloat = function(v) {
-    return /^(-?\d+)(\.\d+)?$/.test(v + "") || /^(-?\d+)(\.\d+)?e(-?\d+)$/.test(v + "");
-};
-
-var processObj = undefined;
-
-try {
-    processObj = eval('process');
-} catch (e) {}
-
-/**
- * Flag of is in node.js environment or not.
- *
- * @static
- * @memberof H
- * @type {boolean}
- */
-C.isNodejs = 'object' === typeof processObj && Object.prototype.toString.call(processObj) === '[object process]';
-
-C.root = {};
-
-try {
-    //noinspection JSUnresolvedVariable
-    C.root = GLOBAL;
-} catch (e) {
-    C.root = window;
-}
-
-//noinspection JSUnresolvedVariable
-// C.root = C.isNodejs ? GLOBAL : window;
-
-//noinspection JSUnresolvedVariable
-var root = C.root;
-
-//noinspection JSUnresolvedVariable
-root.navigator = root.navigator || {userAgent: ""};
-
-C.root = root;
-
-/**
- * Get IE version.
- * Returns 0 in non-IE environment.
- *
- * @static
- * @memberof H
- * @returns {number}
- */
-C.getIE = function() {
-    var MSIEs = navigator.userAgent.split('MSIE ')[1] || "0";
-    var DNETs = navigator.userAgent.split('rv:')[1] || "0";
-
-    MSIEs = MSIEs.split(".")[0];
-    DNETs = DNETs.split(".")[0];
-
-    var msie = ~~MSIEs;
-    var dnet = ~~DNETs;
-
-    if (msie != 0) {
-        return msie;
-    }
-    if (dnet != 0) {
-        return dnet;
-    }
-
-    return 0;
-};
-
-/**
- * Check if is in IE or is in a specified version of IE.
- *
- * @static
- * @memberof H
- * @param {Number} [v] version to check
- * @returns {boolean}
- */
-C.isIE = function(v) {
-    if (v !== undefined) {
-        return C.getIE() == v;
-    } else {
-        return C.getIE() !== 0;
-    }
-};
-
-/**
- * Flag of is in IE.
- *
- * @static
- * @memberof H
- * @type {boolean}
- */
-C.likeIE = !!C.getIE();
-
-/**
- * Flag of is in browsers on iPhone.
- *
- * @static
- * @memberof H
- * @type {boolean}
- */
-C.isiPhone = navigator.userAgent.indexOf('iPhone') !== -1;
-
-/**
- * Flag of is in browsers of Lollipop systems
- * @type {boolean}
- */
-C.isLollipop = navigator.userAgent.indexOf('Android 5.') !== -1;
-
-//root.hasOwnProperty shims
-if (!root.hasOwnProperty) {
-    root.hasOwnProperty = function(p) {
-        //Note: in IE<9, p cannot be a function (for window)
-        return !!root[p];
-    };
-}
-
-/**
- * Check if canvas drawing is supported in current browser.
- *
- * @static
- * @memberof H
- * @returns {boolean}
- */
-C.isCanvasSupported = function () {
-    if (C.isNodejs) return false;
-    var canvas = document.createElement('canvas');
-    return root.hasOwnProperty("__cv") ? root.__cv : root.__cv = !!(canvas.getContext && canvas.getContext('2d'));
-};
-
-/**
- * Check if webgl drawing is supported in current browser.
- *
- * @static
- * @memberof H
- * @returns {boolean}
- */
-C.isWebGLSupported = function () {
-    if (C.isNodejs) return false;
-    var canvas = document.createElement('canvas');
-    return root.hasOwnProperty("__gl") ? root.__gl : root.__gl = !!(root['WebGLRenderingContext'] && canvas.getContext('webgl'));
-};
-
-C.isCanvasSupported();
-C.isWebGLSupported();
-
-/**
- * Language string
- *
- * @static
- * @memberof H
- * @type {string}
- */
-C.language = C.isNodejs ? "" : (navigator.language || navigator['browserLanguage'] || "").toLowerCase();
-
-module.exports = C;
-},{"lodash/isArrayLike":7}],16:[function(require,module,exports){
-/*
- * Custom Event Manipulation Module
- */
-
-var E = {};
-
-var H = require('./uuid');
-var C = require('./iterator');
-
-/**
- * DOM event operators.
- *
- * @static
- * @memberof H
- * @type {{addHandler: E.Event.addHandler, removeHandler: E.Event.removeHandler}}
- */
-E.Event = {
-    /**
-     * Add event handler
-     *
-     * @static
-     * @memberof H.Event
-     * @param {Element} oElement DOM element
-     * @param {String} sEvent event name
-     * @param {Function} fnHandler event handler
-     */
-    addHandler: function (oElement, sEvent, fnHandler) {
-        sEvent[0] = sEvent[0].toUpperCase();
-        oElement.addEventListener ? oElement.addEventListener(sEvent, fnHandler, false) : oElement.attachEvent("on" + sEvent, fnHandler)
-    },
-    /**
-     * Remove event handler from dom element
-     *
-     * @static
-     * @memberof H.Event
-     * @param {Element} oElement DOM element
-     * @param {String} sEvent event name
-     * @param {Function} fnHandler event handler
-     */
-    removeHandler: function (oElement, sEvent, fnHandler) {
-        sEvent[0] = sEvent[0].toUpperCase();
-        oElement.removeEventListener ? oElement.removeEventListener(sEvent, fnHandler, false) : oElement.detachEvent("on" + sEvent, fnHandler);
-        sEvent[0] = sEvent[0].toLowerCase();
-        oElement.removeEventListener ? oElement.removeEventListener(sEvent, fnHandler, false) : oElement.detachEvent("on" + sEvent, fnHandler);
-    }
-};
-
-/**
- * EventDispatcher
- *
- * @static
- * @memberof H
- * @returns {{listeners: {}, attachListener: H.EventDispatcher.attachListener, fire: H.EventDispatcher.fire, removeListener: H.EventDispatcher.removeListener, clearListener: H.EventDispatcher.clearListener}}
- * @constructor
- */
-E.EventDispatcher = function() {
-    return {
-        listeners: {},
-        /**
-         * Attach an listener listening on a channel
-         *
-         * @static
-         * @memberof H.EventDispatcher
-         * @param {String} key channel to listen
-         * @param {Function} cb listener body
-         * @returns {String} UUID String, listener identifier
-         */
-        attachListener: function(key, cb) {
-            this.listeners[key] = this.listeners[key] || {};
-            //noinspection JSUnresolvedVariable
-            cb.uuid = cb.uuid || H.fastUuid();
-            //noinspection JSUnresolvedVariable
-            this.listeners[key][cb.uuid] = cb;
-            //noinspection JSUnresolvedVariable
-            return cb.uuid;
-        },
-        /**
-         * Fire event at a channel now
-         *
-         * @static
-         * @memberof H.EventDispatcher
-         * @param {String} key event channel key to fire
-         * @param {*} [data] optional data to append
-         */
-        fire: function(key, data) {
-            if (this.listeners[key]) {
-                C.each(this.listeners[key], function(cb) {
-                    //noinspection JSUnresolvedVariable
-                    if (cb && typeof cb === 'function' && !cb.blocked) {
-                        try {
-                            cb(data);
-                        }catch(e) {
-                            console.log(e)
-                        }
-                    }
-                });
-            }
-        },
-        /**
-         * Remove a listener from a channel.
-         *
-         * @static
-         * @memberof H.EventDispatcher
-         * @param {String} key channel name
-         * @param {Function} func listener body
-         */
-        removeListener: function(key, func) {
-            if (this.listeners[key]) {
-                this.listeners[key] = C.each(this.listeners[key], function(listener) {
-                    //noinspection JSUnresolvedVariable
-                    if (listener.uuid !== func.uuid) return listener;
-                }).merge();
-            }
-        },
-        /**
-         * Clear all listeners on a channel
-         *
-         * @static
-         * @memberof H.EventDispatcher
-         * @param {String} key channel key to clear
-         */
-        clearListener: function(key) {
-            this.listeners[key] = undefined;
-            delete this.listeners[key];
-        }
-    };
-};
-
-module.exports = E;
-},{"./iterator":17,"./uuid":27}],17:[function(require,module,exports){
-/*
- * Iterator Logic Module
- */
-var C = require('lodash/core');
-var Mini = require('../mini');
-
-var I = function(template) {
-    I.template = template || I.resultWrapper;
-    return I;
-};
-
-/**
- * Set the default result template.
- * A result template will be used to produce a result object according to the input value.
- *
- * @static
- * @param {Function} template
- * @returns {I}
- * @constructor
- */
-I.setTemplate = function(template) {
-    I.template = template || I.resultWrapper;
-    return I;
-};
-
-/*
- * @private
- *
- * returns a template object for the input value
- */
-I.resultWrapper = function(v) {
-    if (I.template !== undefined) return I.template(v);
-    return (v === undefined || v === null) ? {} : (Mini.isArrayLike(v) ? [] : {});
-};
-
-/**
- * Iterates an object or an array with an iteratee and a stack of stack trace
- *
- * @static
- * @memberof H
- * @param {Array|Object} obj
- * @param {Function} fn
- * @param {Array|String} [stackStack]
- * @return {Array|Object} return mapped results of the input object
- */
-I.each = function(obj, fn, stackStack) {
-    stackStack = stackStack || [];
-    var ret = I.resultWrapper(obj);
-    if (H.debug) {
-        C.each(obj, function(val, key, list) {
-            try {
-                var r = fn(val, key, list);
-                if (r) ret[key] = r;
-            } catch (e) {
-                //E.printStackTrace only accepts one parameter
-                e.printStackTrace(stackStack);
-            }
-        });
-    } else {
-        C.each(obj, function(val, key, list) {
-            var r = fn(val, key, list);
-            if (r) ret[key] = r;
-        });
-    }
-    return ret;
-};
-
-/**
- * Just iterate the input object
- * @type {function((Array|Object), Function=): (Array|Object)}
- */
-I.every = C.each;
-
-/**
- * Iterator function with early quit.
- *
- * @static
- * @memberof H
- * @param {Array|Object} data data to iterate
- * @param {Function} fn function to yield result of each input
- * @param {Function} callable function to check if the itearting should be terminated
- * @param {Array} [stackStack] stack trace stack
- */
-I.until = function(data, fn, callable, stackStack) {
-    stackStack = stackStack || [];
-    var ret = I.resultWrapper(data);
-    //TODO: does it work? (not including `core` module here due to dependency error)
-    //TODO: remove dependency on static named variable `H`
-    if (H.debug) {
-        C.find(data, function(val, key, list) {
-            try {
-                var r = fn(val, key, list);
-                if (r) ret[key] = r;
-                return callable(val, key, list);
-            } catch (e) {
-                e.printStackTrace('Nested error', stackStack);
-            }
-        });
-    } else {
-        C.find(data, function(val, key, list) {
-            var r = fn(val, key, list);
-            if (r) ret[key] = r;
-            return callable(val, key, list);
-        });
-    }
-    return ret;
-};
-
-/**
- * Iterate all keys on the object. (indices on arrays)
- * Would prefer H.each(H.keys())
- *
- * @static
- * @memberof H
- * @param {Array|Object} data data to iterate
- * @param {Function} callable iteratee to yield result
- */
-I.eachKey = function(data, callable) {
-    var keys = data;
-    if (!Mini.isArrayLike(data)) {
-        keys = C.keys(data);
-    }
-    var l = keys.length;
-    var n = keys.length;
-    for (l++; --l;) {
-        callable(n - l, keys[n - l], data);
-    }
-};
-
-/**
- * Iterate on a range of numbers.
- *
- * @static
- * @memberof H
- * @return {Array|Object}
- * @example
- *
- * H.eachIndex(4, function() {}) => 4x undefined
- * H.eachIndex(1, 4, function() {}) => 3x undefined
- * H.eachIndex(2, 4, 2, function() {}) => 1x undefined
- */
-I.eachIndex = function() {
-    var length = arguments.length;
-    //accept 2-4 arguments only.
-    if (length < 2 || length > 4) {
-        return;
-    }
-    var start = length > 2 ? arguments[0] : 0;
-    var end = length === 2 ? arguments[0] : arguments[1];
-    var step = length >= 4 ? arguments[2] : 1;
-    var iteratee = arguments[length - 1];
-
-    //end, iteratee
-    //start, end, iteratee
-    //start, end, step, iteratee
-    var rs = I.resultWrapper([]);
-    var i = 0;
-
-    if (step === 1) {
-        //short for is faster than dowhile
-        var ci = start;
-        for (i = end - start + 1; --i;) {
-            rs[ci] = iteratee(ci, ci);
-            ci++;
-        }
-        return rs;
-    } else {
-        do {
-            rs[start] = iteratee(start, i++);
-
-            start += step;
-        } while (start <= end);
-        return rs;
-    }
-};
-
-/**
- * Iterator discarding values.
- *
- * @param {Array|Object|Function} ele object to iterate
- * @param {Function} fn iteratee to produce values
- */
-I.filter = function(ele, fn) {
-    if (fn === undefined) {
-        fn = ele;
-        ele = this;
-    }
-    return I.each(ele, function(o) {
-        if (fn(o)) {
-            return o;
-        }
-    });
-};
-
-module.exports = I;
-},{"../mini":3,"lodash/core":6}],18:[function(require,module,exports){
-/*
- * Math-Related Module
- */
-
-var Ms = {};
-var C = require('../mini');
-var H = require('./stacktrace');
-
-/**
- * Sum a list of number
- *
- * @static
- * @memberof H
- * @param {Array} list
- * @returns {number}
- */
-Ms.sum = function(list) {
-    if (!C.isArrayLike(list)) return 0;
-    var sum = 0;
-    var length = list.length;
-    length++;
-    while(--length) {
-        sum += list[length - 1];
-    }
-    if (isNaN(sum)) {
-        H.printStackTrace("NaN!");
-        return 0;
-    }
-    return sum;
-};
-
-/**
- * Hypot polyfill.
- *
- * @static
- * @memberof H
- * @type {Function}
- */
-Ms.hypot = Math.hypot || function() {
-        return Math.sqrt(Ms.sum(C.arrayEach(arguments, function(arg) {
-            return arg * arg;
-        })));
-    };
-
-/**
- * Log2 polyfill
- *
- * @static
- * @memberof H
- * @type {Function}
- */
-Ms.log2 = Math.log2 || function(number) {
-        return Math.log(number) / Math.log(2);
-    };
-
-/**
- * Check if a variable between given two numbers
- *
- * @static
- * @memberof H
- * @param {Number} v number to check
- * @param {Number} v0 margin 1
- * @param {Number} v1 margin 2
- * @returns {boolean}
- */
-Ms.varInRange = function(v, v0, v1) {
-    return (v - v0) * (v - v1) < 0;
-};
-
-/**
- * Check if a point [x, y] is inside the rectangle of two given points.
- *
- * @static
- * @memberof H
- * @param {Object} p point to check
- * @param {Object} p0 point 1
- * @param {Object} p1 point 2
- * @returns {boolean}
- */
-Ms.pointInRect = function(p, p0, p1) {
-    var result = true;
-    C.arrayEach(p, function(ele, index) {
-        result &= Ms.varInRange(ele, p0[index], p1[index]);
-    });
-    return result;
-};
-
-/**
- * Extract max value. Object not supported
- *
- * @static
- * @memberof H
- * @param list
- * @returns {number}
- */
-Ms.max = function(list) {
-    var mx = -Infinity;
-    C.arrayEach(list, function(v) {
-        if (v > mx) mx = v;
-    });
-    return mx;
-};
-
-/**
- * Extract min value. Object not supported
- *
- * @static
- * @memberof H
- * @param list
- * @returns {number}
- */
-Ms.min = function(list) {
-    var mx = Infinity;
-    C.arrayEach(list, function(v) {
-        if (v < mx) mx = v;
-    });
-    return mx;
-};
-
-//dependes on `keys` and `values`
-// Ms.maxValue = function(obj) {
-//     return Ms.max(C.values(obj));
-// };
-//
-// Ms.minValue = function(obj) {
-//     return Ms.min(C.values(obj));
-// };
-
-/*
- * Individual Functions
- */
-
-/**
- * Degree to radian
- *
- * @static
- * @memberof H
- * @param {Number} degree degree value
- * @returns {number} radian value
- */
-Ms.degToRad = function(degree) {
-    return (degree / 180.0) * Math.PI;
-};
-
-/**
- * Radian to degree
- *
- * @static
- * @memberof H
- * @param {Number} rad radian value
- * @returns {number} degree value
- */
-Ms.radToDeg = function(rad) {
-    return rad * 180.0 / Math.PI;
-};
-
-/**
- * Normalize degree value to [0, 360)
- *
- * @static
- * @memberof H
- * @param {Number} degree degree value
- * @returns {number} normalized degree value
- */
-Ms.standardizeDegree = function(degree) {
-    var floor = Math.floor(degree / 360.0);
-    return degree - floor * 360.0;
-};
-
-/**
- * Normalize radian value to [0, 2*PI)
- *
- * @static
- * @memberof H
- * @param {Number} rad radian value
- * @returns {number} normalized radian value
- */
-Ms.standardizeRad = function(rad) {
-    var floor = Math.floor(rad / (2 * Math.PI));
-    return rad - floor * 2 * Math.PI;
-};
-
-/**
- * Convert point in rectangle coordinates to polar coordinates. (in radian)
- *
- * @static
- * @memberof H
- * @param {Array} coor rect coordinates
- * @returns {*[]} polar coordinates
- */
-Ms.rectToPolar = function(coor) {
-    var r = Ms.hypot(coor[0], coor[1]);
-    var absTheta = Math.atan2(Math.abs(coor[1]), Math.abs(coor[0])); // in rad
-    var signal = coor[0] * coor[1] < 0;
-    if (coor[0] >= 0) {
-        if (coor[1] >= 0) {
-            return [r, absTheta];
-        } else {
-            return [r, 2 * Math.PI - absTheta];
-        }
-    } else {
-        return [r, Math.PI + (signal ? -1 : 1) * absTheta];
-    }
-};
-
-/**
- * Convert point in polar coordinates to rectangle coordinates.
- *
- * @static
- * @memberof H
- * @param {Array} coor polar coordinates
- * @returns {*[]} rectangle coordinates
- */
-Ms.polarToRect = function(coor) {
-    var cA = Math.cos(coor[1]);
-    var sA = Math.sin(coor[1]);
-    return [coor[0] * cA, coor[0] * sA];
-};
-
-/**
- * Convert distance in latitude to meter
- *
- * @static
- * @memberof H
- * @param {Number} delta distance represented in latitude
- * @returns {number} distance in meter
- */
-Ms.latToMeter = function(delta) {//in meters
-    return 40008000 * delta / 360.0;
-};
-
-/**
- * Convert distance in longtitude around some latitude to meter
- *
- * @static
- * @memberof H
- * @param {Number} lat latitude
- * @param {Number} delta distance in longtitude
- * @returns {number} distance in meter
- */
-Ms.lngToMeterAtLat = function(lat, delta) {
-    return delta * Math.cos(Math.PI * Math.abs(lat) / 180) * 40075040 / 360.0;
-};
-
-/**
- * Convert distance in meter to distance in latitude
- *
- * @static
- * @memberof H
- * @param {Number} meter distance in meter
- * @returns {number} distance in latitude
- */
-Ms.meterToLat = function(meter) {
-    return 360.0 * meter / 40008000;
-};
-
-/**
- * Convert distance in meter to distance in longtitude around some latitude
- *
- * @static
- * @memberof H
- * @param {Number} lat latitude
- * @param {Number} meter distance in meter
- * @returns {number} distance in longtitude
- */
-Ms.meterToLngAtLat = function(lat, meter) {
-    return 360.0 * meter / (40075040 * Math.cos(Math.PI * Math.abs(lat) / 180));
-};
-
-/**
- * Calculate the distance between two points on earth.
- * Points are represented in 2-element arrays ([longtitude, latitude])
- * Assuming the earth a perfect sphere.
- *
- * @static
- * @memberof H
- * @param {Array} p0 point 1
- * @param {Array} p1 point 2
- * @returns {number} distance in meters
- */
-Ms.distOnEarth = function(p0, p1) {
-    //[lng, lat], assuming earth a sphere
-    return Math.PI * 6400000 * Math.acos(Math.cos(p0[0] - p1[0]) + Math.cos(p0[1] - p1[1]) - 1) / 180.0;
-};
-
-module.exports = Ms;
-},{"../mini":3,"./stacktrace":23}],19:[function(require,module,exports){
-/*
- * Object-Related Module
- */
-
-var O = {};
-require('./stacktrace');
-
-//variable type to be checked
-/**
- * Checks if the target string contains a charsequence.
- *
- * @static
- * @memberof H
- * @param {String} str target string
- * @param {String} sub substring to check
- * @returns {boolean}
- */
-O.strContains = function(str, sub) {
-    return str.indexOf(sub) !== -1;
-};
-
-/**
- * Checks if the target string contains a charsequence ignoring the char case.
- *
- * @static
- * @memberof H
- * @param {String} str target string
- * @param {String} sub substring to check
- * @returns {boolean}
- */
-O.strContainsIgnoreCase = function(str, sub) {
-    return str.toLowerCase().indexOf(sub.toLowerCase()) !== -1;
-};
-
-O.parseJson = function(json) {
-    try {
-        return JSON.parse(decodeURI(json));
-    } catch (e) {
-        try {
-            return JSON.parse(json);
-        } catch (e) {
-            e.printStackTrace();
-        }
-    }
-    return undefined;
-};
-
-/**
- * Clones the object via JSON.
- * Should be used on small plain javascript objects only.
- *
- * @static
- * @memberof H
- * @param {Array|Object} obj
- * @return {Object} cloned object
- */
-O.cloneByParse = function(obj) {
-    //for small objects only
-    return JSON.parse(JSON.stringify(obj));
-};
-
-module.exports = O;
-},{"./stacktrace":23}],20:[function(require,module,exports){
-var root = require('./detect').root;
-
-root.requestAnimationFrame = (function() {
-    return root.webkitRequestAnimationFrame ||
-        root.requestAnimationFrame ||
-        root.mozRequestAnimationFrame ||
-        root.oRequestAnimationFrame ||
-        root.msRequestAnimationFrame ||
-        function(callback/*, element*/){
-            return root.setTimeout(callback, 1000 / 60);
-        };
-})();
-},{"./detect":15}],21:[function(require,module,exports){
-/*
- * ResultSet Module
- */
-var RS = {};
-var H = require('lodash/core');
-var ARS = require('./abstractresultset');
-var I = require('./iterator');
-
-var RsIdentifier = '__isRS__';
-
-//the default ResultSet should not exclude any values
-//noinspection JSUnusedLocalSymbols
-function checker(val) {
-    return true;
-}
-
-//default channel doesn't need filter
-ARS.registerChannel(RsIdentifier, [Array.prototype, Object.prototype], checker);
-
-function registerComponent(name, func) {
-    ARS.registerChannelFunction(RsIdentifier, name, function(preCheck) {
-        //r-w risky?
-        checker = preCheck;
-        return func;
-    });
-}
-
-function wrapFunction(fn) {
-    return function() {
-        if (checker(arguments[0])) {
-            return fn.apply(this, arguments);
-        }
-    }
-}
-
-/*
- * ResultSet Operations
- */
-/**
- * Iterates an Array or Object, promise version
- *
- * @param {*} fn iterator function
- * @returns {Array|Object} result composed by return statement
- */
-function each(fn) {
-    //patch `fn`
-    arguments[0] = wrapFunction(arguments[0]);
-    return I.each.apply(H, [this].concat(Array.prototype.slice.call(arguments)));
-}
-
-/**
- * Iterates an Array or Object, return the filtered result, promise ver
- *
- * @param {Function} fn filter function
- * @returns {Array|Object} filtered result
- */
-function filter(fn) {
-    fn = wrapFunction(fn);
-    return I.each(this, function(o) {
-        if (fn(o)) {
-            return o;
-        }
-    });
-}
-
-/**
- * Sort an Array or values of an Object, return the sorted array, promise ver
- *
- * @param {Function} fn sort function
- * @returns {*|Array} sorted array
- */
-function sortBy(fn) {
-    fn = wrapFunction(fn);
-    return H.sortBy(this, fn);
-}
-
-/**
- * Returns the value array of an object or itself of an array.
- *
- * @returns {*|Array}
- */
-function toArray() {
-    return H.values(this);
-}
-
-/**
- * Return grouped values by a grouping function of an array or an object
- *
- * @param {Function} fn grouping function
- * @returns {*}
- */
-function groupBy(fn) {
-    fn = wrapFunction(fn);
-    return H.groupBy(this, fn);
-}
-
-/**
- * Joins an array or the value array of an object
- *
- * @param {String} separator result separator
- * @returns {string} joined string
- */
-function join(separator) {
-    return H.values(this).join(separator || "");
-}
-
-/**
- * Sums all numbers in an array or value array of an object
- *
- * @returns {number} sum value
- */
-function sum() {
-    var s = 0;
-    I.each(this || [], function(v) {
-        var nv = H.isInteger(v) ? parseInt(v) : (H.isFloat(v) ? parseFloat(v) : NaN);
-        if (!isNaN(nv)) {
-            s += nv;
-        }
-    });
-    return s;
-}
-
-/**
- * Returns the length of an array or the value array of an object
- *
- * @returns {Number} length
- * @constructor
- */
-function Length() {
-    return H.values(this).length;
-}
-
-/**
- * Returns the array itself or the value array of an object
- *
- * @returns {*|Array} result array
- */
-function values() {
-    return H.values(this);
-}
-
-/**
- * Returns the key array of an object or the index array of an array
- *
- * @returns {*|Array} key array
- */
-function keys() {
-    return H.keys(this);
-}
-
-/**
- * Returns the flatten array of an nested array.
- *
- * @returns {*|Array}
- */
-function flatten() {
-    return H.flatten(this) || [];
-}
-
-registerComponent("each",    each);
-registerComponent("filter",  filter);
-registerComponent("sortBy",  sortBy);
-registerComponent("toArray", toArray);
-registerComponent("groupBy", groupBy);
-registerComponent("join",    join);
-registerComponent("sum",     sum);
-registerComponent("Length",  Length);
-registerComponent("values",  values);
-registerComponent("keys",    keys);
-registerComponent("flatten", flatten);
-
-/**
- * Wrap an object to default ResultSet
- *
- * @static
- * @memberof H
- * @param {Array|Object} v anything to wrap
- * @returns {*} wrapped ResultSet object
- */
-var wrap = ARS.wrapperGen(RsIdentifier);
-
-RS.wrap = wrap;
-/**
- * @deprecated
- * @type {wrap}
- */
-RS.fastWrap = wrap;
-
-module.exports = RS;
-},{"./abstractresultset":11,"./iterator":17,"lodash/core":6}],22:[function(require,module,exports){
-var S = {};
-
-var H = require('./detect');
-var root = H.root;
-
-var noop = function() {
-    return function() {};
-};
-
-var navigator = H.root.navigator || {userAgent: ""};
-
-/**
- * Add property to object
- *
- * @static
- * @memberof H
- * @param {Object} object to operate
- * @param {String} key field to fill in
- * @param {Object} descriptor property descriptor
- */
-var addProperty = noop();
-//defineProperty in IE8 only accepts DOM elements as parameters, while in Safari 5 it's opposite
-if (!Object.defineProperty || (0 < H.getIE() <= 8 && navigator.userAgent.indexOf('MSIE') !== -1)) {
-    addProperty = function(instance, k, descriptor) {
-        instance[k] = descriptor.value;
-
-        if (isObject(descriptor[k])) {
-            instance[k].ienumerable = !descriptor.enumerable;
-        } else {
-            if (!instance[k].ienumerables) {
-                instance[k].ienumerables = [];
-            }
-            if (!descriptor.enumerable && instance[k].ienumerables instanceof Array) {
-                instance[k].ienumerables.push(k);
-            } else if (instance['ienumerables']) {
-                instance['ienumerables'][k] = undefined;
-                delete instance['ienumerables'][k];
-            }
-        }
-
-        //configurable, writable to be impl.
-    };
-
-    addProperty.__userDefined__ = true;
-
-    if (!Object.defineProperty) Object.defineProperty = addProperty;
-} else {
-    addProperty = Object.defineProperty;
-}
-
-/**
- * Create object and copy all properties into it.
- *
- * @static
- * @memberof H
- * @param {Object} base base class
- * @param {Object} reference object to copy properties from
- * @example
- *
- * var obj = H.createObject(Object.prototype, {a: 1, b: 2})
- */
-var createObject = function() {
-    function F() {}
-
-    return function(o, p) {
-        F.prototype = o;
-        var instance = new F();
-        if (p) {
-            //p is a descriptor with key name k
-            //is this enough for replacing H.each(H.keys ?
-            for (var k in p) {
-                if (p.hasOwnProperty(k)) addProperty(instance, k, p[k]);
-            }
-        }
-        return instance;
-    };
-}();
-
-//emulate legacy getter/setter API using ES5 APIs
-try {
-    if (!Object.prototype.__defineGetter__ &&
-        addProperty({},"x",{get: function(){return true;}}).x) {
-        addProperty(Object.prototype, "__defineGetter__",
-            {enumerable: false, configurable: true,
-                value: function(name,func)
-                {addProperty(this,name,
-                    {get:func,enumerable: true,configurable: true});
-                }});
-        addProperty(Object.prototype, "__defineSetter__",
-            {enumerable: false, configurable: true,
-                value: function(name,func)
-                {addProperty(this,name,
-                    {set:func,enumerable: true,configurable: true});
-                }});
-    }
-} catch(defPropException) {/*Do nothing if an exception occurs*/}
-
-// Avoid `console` errors in browsers that lack a console.
-(function() {
-    var method;
-    var noop = function () {};
-    var methods = [
-        'assert', 'clear', 'count', 'debug', 'dir', 'dirxml', 'error',
-        'exception', 'group', 'groupCollapsed', 'groupEnd', 'info', 'log',
-        'markTimeline', 'profile', 'profileEnd', 'table', 'time', 'timeEnd',
-        'timeline', 'timelineEnd', 'timeStamp', 'trace', 'warn'
-    ];
-    var length = methods.length;
-    var console = root.console || {};
-    if (!root.console) root.console = console;
-
-    while (length--) {
-        method = methods[length];
-
-        // Only stub undefined methods.
-        if (!console[method]) {
-            console[method] = noop;
-        }
-    }
-}());
-
-S.addProperty = addProperty;
-S.createObject = createObject;
-
-module.exports = S;
-},{"./detect":15}],23:[function(require,module,exports){
-var C = {};
-
-var Mini = require('../mini');
-
-var log = (console.error || console.log);
-
-/**
- * Generate stack trace string. (separated by `\n`)
- *
- * @static
- * @memberof H
- * @param {String} [title]
- * @returns {string} stack trace string
- */
-C.getStackTrace = function(title) {
-    var callstack = "Referenced From: " + (title || "");
-    var e = title instanceof Error ? title : new Error(callstack);
-    var split = e.stack.split('\n');
-    if (split.length > 1) {
-        var t = split[0];
-        //remove getStackTrace itself
-        split.shift();
-        split.shift();
-        split.unshift(t);
-        return split.join('\n');
-    }
-    return e.stack;
-};
-
-var DefaultNestedTitle = "Nested error:";
-var DefaultTitle = "Error:";
-
-/**
- * Print stack trace stack.
- *
- * @static
- * @memberof H
- * @param {String|Error} [title] title or error of current layer
- * @param {Array} [stackStack] stack trace stack (possibly)
- * @example
- *
- * usage:
- * H.printStackTrace(string/error, stackStack)
- * H.printStackTrace(string/error)
- * H.printStackTrace(stackStack)
- * H.printStackTrace()
- * variant:
- * error.printStackTrace() -> printStackTrace(error, [])
- */
-C.printStackTrace = function(title, stackStack) {
-    stackStack = stackStack || [];
-    if (Mini.isArrayLike(title)) {
-        //noinspection JSValidateTypes for arguments
-        stackStack = title;
-        if (stackStack.length) {
-            title = DefaultNestedTitle;
-        } else {
-            title = DefaultTitle;
-        }
-    }
-    title = title || DefaultTitle;
-    stackStack.unshift(C.getStackTrace(title));
-    var n = stackStack.length;
-    var l = stackStack.length;
-    for (l++; --l;) {
-        log(stackStack[n - l]);
-    }
-};
-
-/**
- * Print string with stack trace in debug mode.
- *
- * @static
- * @memberof H
- * @param {String|Error} [d] content to print
- * @param {Array} [stackTrace] stack trace stack
- */
-C.errlog = function(d, stackTrace) {
-    if (C.debug) {
-        C.printStackTrace(d);
-        if (stackTrace && !C.isArrayLike(stackTrace)) {
-            console.error("Referenced From: " + stackTrace);
-        } else if (stackTrace && C.isArrayLike(stackTrace)) {
-            for (var i = stackTrace.length - 1; i > -1; i--) {
-                if (stackTrace[i]) console.error("Referenced From: " + stackTrace[i]);
-            }
-        }
-    }
-};
-
-function printStackTrace(stackStack) {
-    C.printStackTrace(this, stackStack);
-}
-
-Error.prototype.getStackTrace = C.getStackTrace;
-Error.prototype.printStackTrace = printStackTrace;
-
-module.exports = C;
-},{"../mini":3}],24:[function(require,module,exports){
-var C = {};
-var H = require('./stacktrace');
-var Detect = require('./detect');
-
-if (Detect.isNodejs) {
-    Detect.root.__sessionStorage = {};
-
-    C.setItem = setItemFallback;
-    C.getItem = getItemFallback;
-    C.removeItem = removeItemFallback;
-} else if (Detect.root.sessionStorage) try {
-    sessionStorage.setItem('test', '1');
-    sessionStorage.removeItem('test');
-
-    /**
-     * Store value to session storage.
-     * In node.js environment, data will be stored in global variable `__sessionStorage` (lost on exit).
-     * In browsers without sessionStorage support, will try cookie first.
-     *
-     * @static
-     * @memberof H
-     * @param key
-     * @param value
-     */
-    C.setItem = function(key, value) {
-        sessionStorage.removeItem(key);
-        sessionStorage.setItem(key, value);
-    };
-
-    /**
-     * Deprecated store value to session storage.
-     *
-     * @static
-     * @memberof H
-     * @deprecated
-     * @param key
-     * @param value
-     * @type {Function}
-     */
-    C.secAddItem = C.setItem;
-
-    /**
-     * Remove stored value of key in session storage.
-     *
-     * @static
-     * @memberof H
-     * @param key
-     */
-    C.removeItem = function(key) {
-        sessionStorage.removeItem(key);
-    };
-
-    /**
-     * Retrieve stored value in session storage.
-     *
-     * @static
-     * @memberof H
-     * @param key
-     */
-    C.getItem = function(key) {
-        return sessionStorage.getItem(key);
-    };
-
-} catch (e) {
-    H.printStackTrace('Session Storage Not Supported');
-
-    C.secAddItem = function(key, value) {
-        setCookie(key, value, 1);
-    };
-
-    C.removeItem = function(key) {
-        setCookie(key, null, 0);
-    };
-
-    C.getItem = function(key) {
-        return getCookie(key);
-    };
-}
-
-function setCookie(key, value, days) {
-    var date = new Date();
-    date.setTime(date.getTime() + days * 86400000);
-    document.cookie = key + "=" + value + "; expires=" + date.toUTCString();
-}
-
-function getCookie(key) {
-    var regex = new RegExp('^\\s*' + key + '=');
-    var splits = document.cookie.split(';');
-    for (var i = 0; i < splits.length; i++) {
-        var s = splits[i];
-        var d = s.match(regex);
-        if (d !== null && d.length !== 0) {
-            return s.replace(regex, '');
-        }
-    }
-}
-
-function setItemFallback(key, value) {
-    Detect.root.__sessionStorage[key] = value;
-}
-
-function getItemFallback(key) {
-    return Detect.root.__sessionStorage[key];
-}
-
-function removeItemFallback(key) {
-    Detect.root.__sessionStorage[key] = undefined;
-}
-
-module.exports = C;
-},{"./detect":15,"./stacktrace":23}],25:[function(require,module,exports){
-var C = {};
-
-C.now = Date.now;
-
-/**
- * Run a function, count the time consumed.
- *
- * @static
- * @memberof H
- * @param {Function} cb function to run
- * @returns {number} time in millis
- */
-C.test = function(cb) {
-    var o = C.now();
-    cb();
-    var d = C.now() - o;
-    console.log(d);
-    return d;
-};
-
-/**
- * Run a function, and record it in "Profile" tab in chromium.
- *
- * @static
- * @memberof H
- * @param {Function} cb function to run
- * @param {String} title title of this run
- * @returns {number} time in millis
- */
-C.profile = function(cb, title) {
-    console.profile(title || "Profile");
-    var o = C.now();
-    cb();
-    var d = C.now() - o;
-    //noinspection JSUnresolvedFunction
-    console.profileEnd(title || "Profile");
-    return d;
-};
-
-/**
- * Do something for some times
- *
- * @static
- * @memberof H
- * @param {Function} cb function to run
- * @param {Number} times times function will be executed
- */
-C.repeat = function(cb, times) {
-    if (times > 0) {
-        do {
-            cb();
-        } while(times--);
-    }
-};
-
-/**
- * Test some method and record the time consumption for several times.
- *
- * @static
- * @memberof H
- * @param {Function} cb function to run
- * @param {Number} times times function will be executed
- */
-C.testTimes = function(cb, times) {
-    C.test(function() {
-        C.repeat(cb, times);
-    });
-};
-
-/**
- * Profile some method for several times.
- *
- * @static
- * @memberof H
- * @param {Function} cb function to run
- * @param {Number} times times function will be executed
- * @param {String} title title of this run
- */
-C.profileTimes = function(cb, times, title) {
-    C.profile(function() {
-        C.repeat(cb, times);
-    }, title);
-};
-
-module.exports = C;
-},{}],26:[function(require,module,exports){
-var C = {};
-
-var I = require('./iterator');
-var D = require('./detect');
-
-var location = D.root.location || "";
-
-C.QueryString = function(item){
-    var svalue = location.search.match(new RegExp("[\?\&]" + item + "=([^\&]*)(\&?)","i"));
-    return svalue ? svalue[1] : svalue;
-};
-
-/**
- * @static
- * @memberof H
- * @deprecated
- */
-C.Request = {
-    QueryString: C.QueryString
-};
-
-/**
- * Generate URL with GET param string
- *
- * @static
- * @memberof H
- * @param {String} server prefix string (domain)
- * @param {String} action path of file requests
- * @param {Object} params get param object
- * @returns {string} URL string
- * @example
- *
- * H.getUrlByParams("http://abc.def/", "path/of/file", {a: 1})
- * =>
- * "http://abc.def/path/of/file?a=1"
- */
-C.getUrlByParams =  function(server, action, params) {
-    var paramUrl = "";
-    I.each(params || {}, function(param, key) {
-        paramUrl += "&" + key + "=";
-        var p = "";
-        if (param instanceof Array) {
-            p = "[";
-            var tr = "";
-            I.each(param, function(val) {
-                tr += ",";
-                if (val instanceof Boolean ||
-                    val instanceof String ||
-                    val instanceof Number ||
-                    typeof val === "string" ||
-                    typeof val === "number") {
-                    tr += "\"" + val + "\"";
-                } else if (val) {
-                    tr += val;
-                }
-            });
-            p += tr.substr(1) + "]";
-        } else {
-            p = param;
-        }
-        paramUrl += p;
-    });
-    return (server + action + "?" + paramUrl.substr(1));
-};
-
-/**
- * Generate simple param string from an object
- *
- * @static
- * @memberof H
- * @param {Object} data param object
- * @returns {string}
- * @example
- *
- * H.param({a:1, b:2})
- * =>
- * "a=1&b=2"
- */
-C.param = function(data) {
-    var s = [], add = function(k, v) {
-        s[s.length] = encodeURIComponent(k) + "=" + encodeURIComponent(v);
-    };
-
-    I.each(data, function(o, k) {
-        add(k, o);
-    });
-
-    return s.join("&").replace(/%20/g, "+");
-};
-
-module.exports = C;
-},{"./detect":15,"./iterator":17}],27:[function(require,module,exports){
-var C = {};
-
-/**
- * Generate Uuid
- *
- * @static
- * @memberof H
- * @param {Number} [len] length of target string, not specified by default
- * @param {Number} [radix] when length specified, limit possible characters in the result
- * @returns {string}
- */
-C.uuid = function (len, radix) {
-    var chars = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'.split('');
-    var uuid = [], i;
-    radix = radix || chars.length;
-
-    if (len) {
-        // Compact form
-        for (i = 0; i < len; i++) uuid[i] = chars[0 | Math.random()*radix];
-    } else {
-        // rfc4122, version 4 form
-        var r;
-        // rfc4122 requires these characters
-        uuid[8] = uuid[13] = uuid[18] = uuid[23] = '-';
-        uuid[14] = '4';
-        // Fill in random data.  At i==19 set the high bits of clock sequence as
-        // per rfc4122, sec. 4.1.5
-        for (i = 0; i < 36; i++) {
-            if (!uuid[i]) {
-                r = 0 | Math.random()*16;
-                uuid[i] = chars[(i == 19) ? (r & 0x3) | 0x8 : r];
-            }
-        }
-    }
-    return uuid.join('');
-};
-
-/**
- * Generate Uuid in Default Format
- *
- * @static
- * @memberof H
- * @returns {string}
- */
-C.fastUuid = function() {
-    var chars = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'.split('');
-    var uuid = new Array(36), rnd=0, r;
-    for (var i = 0; i < 36; i++) {
-        if (i === 8 || i === 13 || i === 18 || i === 23) {
-            uuid[i] = '-';
-        } else if (i === 14) {
-            uuid[i] = '4';
-        } else {
-            if (rnd <= 0x02) rnd = 0x2000000 + (Math.random()*0x1000000)|0;
-            r = rnd & 0xf;
-            rnd = rnd >> 4;
-            uuid[i] = chars[(i === 19) ? (r & 0x3) | 0x8 : r];
-        }
-    }
-    return uuid.join('');
-};
-
-module.exports = C;
-},{}],28:[function(require,module,exports){
 var Attr = {};
 
 var Vendor = require('./vendor');
@@ -6281,7 +6274,9 @@ var Mini = require('coreutil/mini');
 
 var AttributeMap = {
     'width': ['innerWidth', 'clientWidth'],
-    'height': ['innerHeight', 'clientHeight']
+    'height': ['innerHeight', 'clientHeight'],
+    'parent': ['parentElement', 'parentNode'],
+    'text': ['innerText', 'textContent']
 };
 
 function getSingleElement(object) {
@@ -6308,18 +6303,91 @@ function queryAttrAlias(attr) {
     var f = Vendor.fromCamel(attr);
     var c_alias = Vendor.attrs[c] || [];
     var f_alias = Vendor.attrs[f] || [];
-    return c_alias.concat(f_alias);
+    return c_alias.concat(f_alias).concat([attr]);
+}
+
+/*
+ * Getters
+ */
+function directRetrieveAttribute(ele, attr) {
+    var mapped = AttributeMap[attr] || [];
+    for (var i = 0; i < mapped.length; i++) {
+        var ret = ele[mapped[i]];
+
+        if (ret !== undefined) return ret;
+    }
 }
 
 function innerGetAttribute(ele, attr) {
-    if (AttributeMap[attr]) {
-        var attrs = AttributeMap[attr];
-        for (var i = 0; i < attrs.length; i++) {
-            var val = getComputedStyle(ele)[attrs[i]];
-            if (val) return val;
+    return getComputedStyle(ele)[attr];
+}
+
+function innerGetDeclaredAttr(ele, attr) {
+    return (ele.style || {})[attr];
+}
+
+function innerGetAttributeUntil(ele, attr, style) {
+    var func = style === 1 ? innerGetAttribute : innerGetDeclaredAttr;
+    var direct = directRetrieveAttribute(ele, attr);
+    if (direct !== undefined) return direct;
+    var attrs = queryAttrAlias(attr);
+    for (var i = 0; i < (attrs || []).length; i++) {
+        var ret = func(ele, attrs[i]);
+        if (ret) return ret;
+    }
+}
+
+function collectElementsAttributes(eles, attr, style) {
+    if (eles instanceof Element) {
+        return innerGetAttributeUntil(eles, attr, style);
+    }
+    if (Mini.isArrayLike(eles)) {
+        return Mini.arrayEach(eles, function(ele) {
+            if (ele instanceof Element || Mini.isArrayLike(ele))
+                return collectElementsAttributes(ele, attr, style);
+        });
+    }
+}
+
+/*
+ * Setters
+ */
+//direct way doesn't work, cuz shortcut attributes like clientWidth are readonly
+function directSetAttribute(ele, attr, val) {
+    var mapped = AttributeMap[attr] || [];
+    for (var i = 0; i < mapped.length; i++) {
+        if (ele[mapped[i]]) {
+            ele[mapped[i]] = val;
+            return true;
         }
     }
-    return getComputedStyle(ele)[attr];
+    return false;
+}
+
+function innerSetAttribute(ele, attr, val) {
+    ele.style[attr] = val;
+}
+
+function innerSetAttributeUntil(ele, attr, val) {
+    //some attributes are read-only. try but don't believe it
+    directSetAttribute(ele, attr, val);
+    var attrs = queryAttrAlias(attr) || [];
+    for (var i = 0; i < attrs.length; i++) {
+        innerSetAttribute(ele, attrs[i], val);
+    }
+}
+
+function walkAndSetAttributes(eles, attr, val) {
+    if (eles instanceof Element) {
+        return innerSetAttributeUntil(eles, attr, val);
+    }
+    if (Mini.isArrayLike(eles)) {
+        return Mini.arrayEach(eles, function(ele) {
+            if (ele instanceof Element || Mini.isArrayLike(ele)) {
+                return walkAndSetAttributes(ele, attr, val);
+            }
+        });
+    }
 }
 
 /**
@@ -6336,24 +6404,7 @@ function getAttribute(ele, attr) {
     if (!ele || !attr) {
         return;
     }
-    var alias = queryAttrAlias(attr);
-
-    if (alias.length === 0) alias = [attr];
-
-    var length = alias.length;
-
-    if (Mini.isArrayLike(alias) && length > 0) {
-        var result = [];
-        var n = length;
-        length++;
-        while (--length) {
-            result = getComputedStyle(ele)[alias[n - length]];
-            if (result) {
-                return result;
-            }
-        }
-        return result;
-    }
+    return collectElementsAttributes(ele, attr, 1);
 }
 
 /**
@@ -6363,27 +6414,124 @@ function getAttribute(ele, attr) {
  * @param {String} attr
  */
 function getStyle(ele, attr) {
-    var alias = queryAttrAlias(attr);
-
-    //returns the first
-    Mini.arrayEach(alias || [], function(a) {
-        //
-    });
+    ele = getSingleElement(ele);
+    if (!ele || !attr) {
+        return;
+    }
+    return collectElementsAttributes(ele, attr, 2);
 }
+
+var setAttribute = walkAndSetAttributes;
 
 Attr.getAttribute = getAttribute;
 Attr.getStyle = getStyle;
 Attr.getSingleElement = getSingleElement;
+Attr.setAttribute = setAttribute;
 
 module.exports = Attr;
-},{"./vendor":31,"coreutil/mini":3}],29:[function(require,module,exports){
+},{"./vendor":32,"coreutil/mini":2}],29:[function(require,module,exports){
+/*
+ * CSS Attributes Operate
+ */
+var Attr = require('./cssattribute');
+var H = require('coreutil/core');
+
+var Ops = {};
+
+/*
+ * Simple Attributes
+ */
+
+function assembleGetterSetters(getter, setter) {
+    return function() {
+        var func = arguments.length === 0 ? getter : setter;
+        return func.apply(this, [this].concat(Array.prototype.slice.call(arguments)));
+    };
+}
+
+function attributeGetterGen(attr) {
+    return function(ele) {
+        return Attr.getAttribute(ele, attr);
+    };
+}
+
+function attributeSetterGen(attr) {
+    return function(ele, val) {
+        return Attr.setAttribute(ele, attr, val);
+    };
+}
+
+function attributeOpAssembled(attr) {
+    return assembleGetterSetters(attributeGetterGen(attr), attributeSetterGen(attr));
+}
+
+Ops.text =    attributeOpAssembled('text');
+Ops.height =  attributeOpAssembled('height');
+Ops.width =   attributeOpAssembled('width');
+Ops.parent =  attributeOpAssembled('parent');
+
+//General CSS Attributes
+Ops.cssAttr = function(attr, value) {
+    if (typeof attr === 'string' && arguments.length === 1) {
+        //get
+        return Attr.getAttribute(this, attr);
+    } else if (typeof attr === 'object') {
+        //set
+        var ele = this;
+        H.each(attr, function(val, key) {
+            Attr.setAttribute(ele, key, val);
+        });
+    } else if (arguments.length === 2) {
+        Attr.setAttribute(this, attr, value);
+    }
+};
+
+/*
+ * Class
+ */
+
+module.exports = Ops;
+},{"./cssattribute":28,"coreutil/core":1}],30:[function(require,module,exports){
+var RS = require('./domresultset');
+var wrap = RS.wrapDom;
+var Mini = require('coreutil/mini');
+
+function findElement(ele, selector) {
+
+    //if is RS, wrap it
+    if (typeof selector !== 'string'
+        && (selector instanceof NodeList
+        || selector instanceof Element
+        || Mini.isArrayLike(selector))) {
+        return wrap(selector);
+    }
+
+    if (ele === document) {
+        return wrap(document.querySelectorAll(selector));
+    } else if(ele instanceof Element) {
+        return ele.prototype.querySelectorAll(selector);
+    }
+}
+
+/*
+ * CSS selector processing module
+ */
+var $ = function(selector) {
+    return findElement(document, selector);
+};
+
+$.findElement = findElement;
+
+module.exports = $;
+},{"./domresultset":31,"coreutil/mini":2}],31:[function(require,module,exports){
 var RS = {};
 
 var C = require('coreutil/core');
 var ARS = require('coreutil/src/abstractresultset');
 var Mini = require('coreutil/mini');
-var Selector = require('./selector');
-var Attr = require('./attribute');
+var Selector = require('./cssselector');
+var Attr = require('./cssattribute');
+var Ops = require('./cssoperators');
 
 var DomIdentifier = '__isDOM__';
 
@@ -6405,7 +6553,7 @@ function checker(val) {
     }
 }
 
-ARS.registerChannel(DomIdentifier, [Element.prototype, Array.prototype], checker);
+ARS.registerChannel(DomIdentifier, [Element.prototype, Array.prototype, NodeList.prototype], checker);
 
 function registerComponent(name, func) {
     ARS.registerChannelFunction(DomIdentifier, name, function(preCheck) {
@@ -6433,14 +6581,6 @@ function clone() {
     //
 }
 
-function css() {
-    //
-}
-
-function text() {
-    //
-}
-
 function attribute() {
     //
 }
@@ -6453,32 +6593,20 @@ function prepend() {
     //
 }
 
-function parent() {
-    if (Mini.isArrayLike(this)) {
-        return Mini.arrayEach(this || [], parent);
-    }
-    if (this instanceof Element) {
-        return this.parentElement || this.parentNode;
-    }
-}
-
-function getWidth() {
-    return Attr.getAttribute(this, 'width');
-}
-
-function getHeight() {
-    //
+function find(selector) {
+    return Selector.findElement(this, selector);
 }
 
 registerComponent("clone",     clone);
-registerComponent("css",       css);
-registerComponent("text",      text);
+registerComponent("css",       Ops.cssAttr);
+registerComponent("text",      Ops.text);
 registerComponent("attribute", attribute);
 registerComponent("append",    append);
 registerComponent("prepend",   prepend);
-registerComponent("parent",    parent);
-registerComponent("getWidth",  getWidth);
-registerComponent("getHeight", getHeight);
+registerComponent("parent",    Ops.parent);
+registerComponent("width",     Ops.width);
+registerComponent("height",    Ops.height);
+registerComponent("find",      find);
 
 var wrap = ARS.wrapperGen(DomIdentifier);
 
@@ -6488,29 +6616,7 @@ RS.wrapDom = wrap;
 RS.H$ = Selector;
 
 module.exports = RS;
-},{"./attribute":28,"./selector":30,"coreutil/core":2,"coreutil/mini":3,"coreutil/src/abstractresultset":11}],30:[function(require,module,exports){
-var RS = require('./domresultset');
-var wrap = RS.wrapDom;
-var Mini = require('coreutil/mini');
-
-/*
- * CSS selector processing module
- */
-var $ = function(selector) {
-
-    //if is RS, wrap it
-    if (typeof selector !== 'string'
-        && (selector instanceof NodeList
-        || selector instanceof Element
-        || Mini.isArrayLike(selector))) {
-        return wrap(selector);
-    }
-
-    return wrap(document.querySelectorAll(selector));
-};
-
-module.exports = $;
-},{"./domresultset":29,"coreutil/mini":3}],31:[function(require,module,exports){
+},{"./cssattribute":28,"./cssoperators":29,"./cssselector":30,"coreutil/core":1,"coreutil/mini":2,"coreutil/src/abstractresultset":3}],32:[function(require,module,exports){
 /*
  * Vendor specified properties list
  */
@@ -7639,4 +7745,4 @@ V.query = function(attr) {
 };
 
 module.exports = V;
-},{}]},{},[1]);
+},{}]},{},[27]);
