@@ -3,8 +3,9 @@ var RS = {};
 var C = require('coreutil/core');
 var ARS = require('coreutil/src/abstractresultset');
 var Mini = require('coreutil/mini');
-var Selector = require('./selector');
-var Attr = require('./attribute');
+var Selector = require('./cssselector');
+var Attr = require('./cssattribute');
+var Ops = require('./cssoperators');
 
 var DomIdentifier = '__isDOM__';
 
@@ -26,7 +27,7 @@ function checker(val) {
     }
 }
 
-ARS.registerChannel(DomIdentifier, [Element.prototype, Array.prototype], checker);
+ARS.registerChannel(DomIdentifier, [Element.prototype, Array.prototype, NodeList.prototype], checker);
 
 function registerComponent(name, func) {
     ARS.registerChannelFunction(DomIdentifier, name, function(preCheck) {
@@ -54,14 +55,6 @@ function clone() {
     //
 }
 
-function css() {
-    //
-}
-
-function text() {
-    //
-}
-
 function attribute() {
     //
 }
@@ -74,32 +67,20 @@ function prepend() {
     //
 }
 
-function parent() {
-    if (Mini.isArrayLike(this)) {
-        return Mini.arrayEach(this || [], parent);
-    }
-    if (this instanceof Element) {
-        return this.parentElement || this.parentNode;
-    }
-}
-
-function getWidth() {
-    return Attr.getAttribute(this, 'width');
-}
-
-function getHeight() {
-    //
+function find(selector) {
+    return Selector.findElement(this, selector);
 }
 
 registerComponent("clone",     clone);
-registerComponent("css",       css);
-registerComponent("text",      text);
+registerComponent("css",       Ops.cssAttr);
+registerComponent("text",      Ops.text);
 registerComponent("attribute", attribute);
 registerComponent("append",    append);
 registerComponent("prepend",   prepend);
-registerComponent("parent",    parent);
-registerComponent("getWidth",  getWidth);
-registerComponent("getHeight", getHeight);
+registerComponent("parent",    Ops.parent);
+registerComponent("width",     Ops.width);
+registerComponent("height",    Ops.height);
+registerComponent("find",      find);
 
 var wrap = ARS.wrapperGen(DomIdentifier);
 
