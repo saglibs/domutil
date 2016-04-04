@@ -5,7 +5,8 @@ var Mini = require('coreutil/mini');
 
 var AttributeMap = {
     'width': ['innerWidth', 'clientWidth'],
-    'height': ['innerHeight', 'clientHeight']
+    'height': ['innerHeight', 'clientHeight'],
+    'parent': ['parentElement', 'parentNode']
 };
 
 function getSingleElement(object) {
@@ -35,15 +36,38 @@ function queryAttrAlias(attr) {
     return c_alias.concat(f_alias);
 }
 
-function innerGetAttribute(ele, attr) {
-    if (AttributeMap[attr]) {
-        var attrs = AttributeMap[attr];
-        for (var i = 0; i < attrs.length; i++) {
-            var val = getComputedStyle(ele)[attrs[i]];
-            if (val) return val;
-        }
+function directRetrieveAttribute(ele, attr) {
+    var mapped = AttributeMap[attr] || [];
+    for (var i = 0; i < mapped.length; i++) {
+        var ret = ele[mapped[i]];
+
+        if (ret !== undefined) return ret;
     }
+}
+
+function innerGetAttribute(ele, attr) {
     return getComputedStyle(ele)[attr];
+}
+
+function innerGetAttributeUntil(ele, attr) {
+    var direct = directRetrieveAttribute(ele, attr);
+    if (direct !== undefined) return direct;
+    var attrs = queryAttrAlias(attr);
+    for (var i = 0; i < (attrs || []).length; i++) {
+        var ret = innerGetAttribute(ele, attrs[i]);
+        if (ret) return ret;
+    }
+}
+
+function collectElementsAttributes(eles, attr) {
+    if (eles instanceof Element) {
+        return innerGetAttributeUntil(eles, attr);
+    }
+    if (Mini.isArrayLike(eles)) {
+        return Mini.arrayEach(eles, function(ele) {
+            return collectElementsAttributes(ele, attr);
+        });
+    }
 }
 
 /**
