@@ -60,10 +60,21 @@ function cloneDomElement(eles, deep) {
     }
 }
 
+/**
+ * Clones the current ResultSet
+ *
+ * @param {boolean} [deep] do deep copy or not
+ */
 function cloneDom(deep) {
     return cloneDomElement(this || [], deep);
 }
 
+/**
+ * Find elements satisfying the specific selector under the current ResultSet
+ *
+ * @param {String} selector selector string
+ * @returns {Array|NodeList|Element} ResultSet
+ */
 function find(selector) {
     return Selector.findElement(this, selector);
 }

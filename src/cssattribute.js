@@ -14,6 +14,12 @@ var AttributeMap = {
     'text': ['innerText', 'textContent']
 };
 
+/**
+ * Extracts the only element in a ResultSet if there's only one.
+ *
+ * @param {Element|NodeList|Array} object ResuleSet to check
+ * @returns {*|null} extracted Element object
+ */
 function getSingleElement(object) {
     if (object instanceof Element) {
         return object;
@@ -104,18 +110,23 @@ function innerSetAttributeUntil(ele, attr, val) {
     }
 }
 
+/**
+ * Walks on ResultSet and set attributes of each to val
+ *
+ * @param {Element|NodeList|Array} eles ResultSet to check
+ * @param {String} attr attribute name
+ * @param {String} val attribute value to set
+ * @returns {*}
+ */
 function walkAndSetAttributes(eles, attr, val) {
     return Func.createWalker(eles, innerSetAttributeUntil, [eles, attr, val]);
 }
 
 /**
- * Get computed style
+ * Get computed style of a ResultSet
  *
- * ele -> [ele]
- * attr -> [attr]
- *
- * @param ele
- * @param attr
+ * @param {Element|NodeList|Array} ele ResultSet to check
+ * @param {String} attr attribute name
  */
 function getCssAttribute(ele, attr) {
     ele = getSingleElement(ele);

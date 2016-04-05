@@ -24,6 +24,12 @@ function attributeSetterGen(attr) {
     };
 }
 
+/**
+ * Get or set the specific attribute on all elements in the ResultSet
+ *
+ * @param {String} attr attribute name
+ * @returns {*|null}
+ */
 function attributeOpAssembled(attr) {
     return Func.assembleFunctions(attributeGetterGen(attr), attributeSetterGen(attr), 0);
 }
