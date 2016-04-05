@@ -4,33 +4,28 @@
 var Attr = require('./cssattribute');
 var H = require('coreutil/core');
 
+var Func = require('./funchelper');
+
 var Ops = {};
 
 /*
  * Simple Attributes
  */
 
-function assembleGetterSetters(getter, setter) {
-    return function() {
-        var func = arguments.length === 0 ? getter : setter;
-        return func.apply(this, [this].concat(Array.prototype.slice.call(arguments)));
-    };
-}
-
 function attributeGetterGen(attr) {
     return function(ele) {
-        return Attr.getAttribute(ele, attr);
+        return Attr.getCssAttribute(ele, attr);
     };
 }
 
 function attributeSetterGen(attr) {
     return function(ele, val) {
-        return Attr.setAttribute(ele, attr, val);
+        return Attr.setCssAttribute(ele, attr, val);
     };
 }
 
 function attributeOpAssembled(attr) {
-    return assembleGetterSetters(attributeGetterGen(attr), attributeSetterGen(attr));
+    return Func.assembleFunctions(attributeGetterGen(attr), attributeSetterGen(attr), 0);
 }
 
 Ops.text =    attributeOpAssembled('text');
@@ -42,15 +37,15 @@ Ops.parent =  attributeOpAssembled('parent');
 Ops.cssAttr = function(attr, value) {
     if (typeof attr === 'string' && arguments.length === 1) {
         //get
-        return Attr.getAttribute(this, attr);
+        return Attr.getCssAttribute(this, attr);
     } else if (typeof attr === 'object') {
         //set
         var ele = this;
         H.each(attr, function(val, key) {
-            Attr.setAttribute(ele, key, val);
+            Attr.setCssAttribute(ele, key, val);
         });
     } else if (arguments.length === 2) {
-        Attr.setAttribute(this, attr, value);
+        Attr.setCssAttribute(this, attr, value);
     }
 };
 

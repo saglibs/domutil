@@ -1469,6 +1469,15 @@ function keys() {
     return H.keys(this);
 }
 
+/**
+ * Returns the flatten array of an nested array.
+ *
+ * @returns {*|Array}
+ */
+function flatten() {
+    return H.flatten(this) || [];
+}
+
 registerComponent("each",    each);
 registerComponent("filter",  filter);
 registerComponent("sortBy",  sortBy);
@@ -1479,6 +1488,7 @@ registerComponent("sum",     sum);
 registerComponent("Length",  Length);
 registerComponent("values",  values);
 registerComponent("keys",    keys);
+registerComponent("flatten", flatten);
 
 /**
  * Wrap an object to default ResultSet
@@ -1619,6 +1629,13 @@ try {
         }
     }
 }());
+
+//Polyfill for IE<9
+if (!String.prototype.trim) {
+    String.prototype.trim = function () {
+        return this.replace(/^[\s\uFEFF\xA0]+|[\s\uFEFF\xA0]+$/g, '');
+    };
+}
 
 S.addProperty = addProperty;
 S.createObject = createObject;
@@ -2114,7 +2131,7 @@ module.exports = getLength;
 (function (global){
 /**
  * @license
- * lodash 4.7.0 (Custom Build) <https://lodash.com/>
+ * lodash 4.8.2 (Custom Build) <https://lodash.com/>
  * Build: `lodash core -o ./dist/lodash.core.js`
  * Copyright jQuery Foundation and other contributors <https://jquery.org/>
  * Released under MIT license <https://lodash.com/license>
@@ -2127,7 +2144,7 @@ module.exports = getLength;
   var undefined;
 
   /** Used as the semantic version number. */
-  var VERSION = '4.7.0';
+  var VERSION = '4.8.2';
 
   /** Used as the `TypeError` message for "Functions" methods. */
   var FUNC_ERROR_TEXT = 'Expected a function';
@@ -2471,7 +2488,8 @@ module.exports = getLength;
   var idCounter = 0;
 
   /**
-   * Used to resolve the [`toStringTag`](http://ecma-international.org/ecma-262/6.0/#sec-object.prototype.tostring)
+   * Used to resolve the
+   * [`toStringTag`](http://ecma-international.org/ecma-262/6.0/#sec-object.prototype.tostring)
    * of values.
    */
   var objectToString = objectProto.toString;
@@ -3254,8 +3272,8 @@ module.exports = getLength;
    */
   function createCtorWrapper(Ctor) {
     return function() {
-      // Use a `switch` statement to work with class constructors.
-      // See http://ecma-international.org/ecma-262/6.0/#sec-ecmascript-function-objects-call-thisargument-argumentslist
+      // Use a `switch` statement to work with class constructors. See
+      // http://ecma-international.org/ecma-262/6.0/#sec-ecmascript-function-objects-call-thisargument-argumentslist
       // for more details.
       var args = arguments;
       var thisBinding = baseCreate(Ctor.prototype),
@@ -3268,9 +3286,8 @@ module.exports = getLength;
   }
 
   /**
-   * Creates a function that wraps `func` to invoke it with the optional `this`
-   * binding of `thisArg` and the `partials` prepended to those provided to
-   * the wrapper.
+   * Creates a function that wraps `func` to invoke it with the `this` binding
+   * of `thisArg` and `partials` prepended to the arguments it receives.
    *
    * @private
    * @param {Function} func The function to wrap.
@@ -3404,7 +3421,8 @@ module.exports = getLength;
       case regexpTag:
       case stringTag:
         // Coerce regexes to strings and treat strings, primitives and objects,
-        // as equal. See https://es5.github.io/#x15.10.6.4 for more details.
+        // as equal. See http://www.ecma-international.org/ecma-262/6.0/#sec-regexp.prototype.tostring
+        // for more details.
         return object == (other + '');
 
     }
@@ -4019,7 +4037,7 @@ module.exports = getLength;
   }
 
   /**
-   * Creates an array of values by running each element in `collection` through
+   * Creates an array of values by running each element in `collection` thru
    * `iteratee`. The iteratee is invoked with three arguments:
    * (value, index|key, collection).
    *
@@ -4027,10 +4045,10 @@ module.exports = getLength;
    * `_.every`, `_.filter`, `_.map`, `_.mapValues`, `_.reject`, and `_.some`.
    *
    * The guarded methods are:
-   * `ary`, `curry`, `curryRight`, `drop`, `dropRight`, `every`, `fill`,
-   * `invert`, `parseInt`, `random`, `range`, `rangeRight`, `slice`, `some`,
-   * `sortBy`, `take`, `takeRight`, `template`, `trim`, `trimEnd`, `trimStart`,
-   * and `words`
+   * `ary`, `chunk`, `curry`, `curryRight`, `drop`, `dropRight`, `every`,
+   * `fill`, `invert`, `parseInt`, `random`, `range`, `rangeRight`, `repeat`,
+   * `sampleSize`, `slice`, `some`, `sortBy`, `take`, `takeRight`, `template`,
+   * `trim`, `trimEnd`, `trimStart`, and `words`
    *
    * @static
    * @memberOf _
@@ -4067,7 +4085,7 @@ module.exports = getLength;
 
   /**
    * Reduces `collection` to a value which is the accumulated result of running
-   * each element in `collection` through `iteratee`, where each successive
+   * each element in `collection` thru `iteratee`, where each successive
    * invocation is supplied the return value of the previous. If `accumulator`
    * is not given the first element of `collection` is used as the initial
    * value. The iteratee is invoked with four arguments:
@@ -4178,7 +4196,7 @@ module.exports = getLength;
 
   /**
    * Creates an array of elements, sorted in ascending order by the results of
-   * running each element in a collection through each iteratee. This method
+   * running each element in a collection thru each iteratee. This method
    * performs a stable sort, that is, it preserves the original sort order of
    * equal elements. The iteratees are invoked with one argument: (value).
    *
@@ -4260,8 +4278,7 @@ module.exports = getLength;
 
   /**
    * Creates a function that invokes `func` with the `this` binding of `thisArg`
-   * and prepends any additional `_.bind` arguments to those provided to the
-   * bound function.
+   * and `partials` prepended to the arguments it receives.
    *
    * The `_.bind.placeholder` value, which defaults to `_` in monolithic builds,
    * may be used as a placeholder for partially applied arguments.
@@ -4904,8 +4921,9 @@ module.exports = getLength;
   }
 
   /**
-   * Checks if `value` is the [language type](https://es5.github.io/#x8) of `Object`.
-   * (e.g. arrays, functions, objects, regexes, `new Number(0)`, and `new String('')`)
+   * Checks if `value` is the
+   * [language type](http://www.ecma-international.org/ecma-262/6.0/#sec-ecmascript-language-types)
+   * of `Object`. (e.g. arrays, functions, objects, regexes, `new Number(0)`, and `new String('')`)
    *
    * @static
    * @memberOf _
@@ -4963,9 +4981,10 @@ module.exports = getLength;
   /**
    * Checks if `value` is `NaN`.
    *
-   * **Note:** This method is not the same as
-   * [`isNaN`](https://es5.github.io/#x15.1.2.4) which returns `true` for
-   * `undefined` and other non-numeric values.
+   * **Note:** This method is based on
+   * [`Number.isNaN`](https://mdn.io/Number/isNaN) and is not the same as
+   * global [`isNaN`](https://mdn.io/isNaN) which returns `true` for
+   * `undefined` and other non-number values.
    *
    * @static
    * @memberOf _
@@ -6147,7 +6166,8 @@ var funcTag = '[object Function]',
 var objectProto = Object.prototype;
 
 /**
- * Used to resolve the [`toStringTag`](http://ecma-international.org/ecma-262/6.0/#sec-object.prototype.tostring)
+ * Used to resolve the
+ * [`toStringTag`](http://ecma-international.org/ecma-262/6.0/#sec-object.prototype.tostring)
  * of values.
  */
 var objectToString = objectProto.toString;
@@ -6220,8 +6240,9 @@ module.exports = isLength;
 
 },{}],26:[function(require,module,exports){
 /**
- * Checks if `value` is the [language type](https://es5.github.io/#x8) of `Object`.
- * (e.g. arrays, functions, objects, regexes, `new Number(0)`, and `new String('')`)
+ * Checks if `value` is the
+ * [language type](http://www.ecma-international.org/ecma-262/6.0/#sec-ecmascript-language-types)
+ * of `Object`. (e.g. arrays, functions, objects, regexes, `new Number(0)`, and `new String('')`)
  *
  * @static
  * @memberOf _
@@ -6263,12 +6284,78 @@ Core.extend(Core, Attr);
 Core.root.H$ = DOM;
 
 module.exports = DOM;
-},{"./src/cssattribute":28,"./src/cssselector":30,"./src/domresultset":31,"coreutil/core":1}],28:[function(require,module,exports){
+},{"./src/cssattribute":29,"./src/cssselector":31,"./src/domresultset":32,"coreutil/core":1}],28:[function(require,module,exports){
+var Func = require('./funchelper');
+
+var Attr = {};
+
+function noop(v) {return v}
+
+function innerGetAttribute(ele, attr) {
+    return ele.getAttribute(attr);
+}
+
+function walkAndGetAttributes(eles, attr, postProcess, addtionalAttr) {
+    return Func.createWalker(eles, function () {
+        return (postProcess || noop)(innerGetAttribute(this, attr), addtionalAttr);
+    }, [eles, attr, postProcess, addtionalAttr]);
+}
+
+function innerSetAttribute(ele, attr, val) {
+    ele.setAttribute(attr, val);
+}
+
+function walkAndSetAttributes(eles, attr, val) {
+    return Func.createWalker(eles, innerSetAttribute, [eles, attr, val]);
+}
+
+function walkAndSetAttributesBySet(eles, attr, valSet) {
+    return Func.createWalker(eles, innerSetAttribute, [eles, attr, valSet], function(args, i) {
+        args[2] = args[2][i];
+    });
+}
+
+Attr.attribute = Func.assembleFunctions(walkAndGetAttributes, walkAndSetAttributes, 1, 0);
+
+function splitClassString(val) {
+    return (val || "").trim().split(/[\s]+/) || [];
+}
+
+function splitGen(strategy) {
+    var func = strategy ? Func.arrayEnsureContains : Func.arrayEnsureWithout;
+    return function(val, clzz) {
+        return func(splitClassString(val), clzz).join(' ');
+    };
+}
+
+function getClasses(alternative, parameter) {
+    return innerGetClass(this, alternative, parameter);
+}
+
+function innerGetClass(ele, alternative, parameter) {
+    return walkAndGetAttributes(ele, 'class', alternative || splitClassString, parameter);
+}
+
+function classOpGen(strategy) {
+    return function(className) {
+        var clss = innerGetClass(this, splitGen(strategy), className);
+
+        walkAndSetAttributesBySet(this, 'class', clss);
+    };
+}
+
+Attr.getClasses = getClasses;
+Attr.addClass = classOpGen(true);
+Attr.removeClass = classOpGen(false);
+
+module.exports = Attr;
+},{"./funchelper":33}],29:[function(require,module,exports){
 /*
  * CSS Attribute Operation Basic
  */
 var Attr = {};
 
+var Func = require('./funchelper');
 var Vendor = require('./vendor');
 var Mini = require('coreutil/mini');
 
@@ -6338,21 +6425,13 @@ function innerGetAttributeUntil(ele, attr, style) {
 }
 
 function collectElementsAttributes(eles, attr, style) {
-    if (eles instanceof Element) {
-        return innerGetAttributeUntil(eles, attr, style);
-    }
-    if (Mini.isArrayLike(eles)) {
-        return Mini.arrayEach(eles, function(ele) {
-            if (ele instanceof Element || Mini.isArrayLike(ele))
-                return collectElementsAttributes(ele, attr, style);
-        });
-    }
+    return Func.createWalker(eles, innerGetAttributeUntil, [eles, attr, style]);
 }
 
 /*
  * Setters
  */
-//direct way doesn't work, cuz shortcut attributes like clientWidth are readonly
+//sometimes direct way doesn't work, cuz some shortcut attributes like clientWidth are readonly
 function directSetAttribute(ele, attr, val) {
     var mapped = AttributeMap[attr] || [];
     for (var i = 0; i < mapped.length; i++) {
@@ -6378,16 +6457,7 @@ function innerSetAttributeUntil(ele, attr, val) {
 }
 
 function walkAndSetAttributes(eles, attr, val) {
-    if (eles instanceof Element) {
-        return innerSetAttributeUntil(eles, attr, val);
-    }
-    if (Mini.isArrayLike(eles)) {
-        return Mini.arrayEach(eles, function(ele) {
-            if (ele instanceof Element || Mini.isArrayLike(ele)) {
-                return walkAndSetAttributes(ele, attr, val);
-            }
-        });
-    }
+    return Func.createWalker(eles, innerSetAttributeUntil, [eles, attr, val]);
 }
 
 /**
@@ -6399,7 +6469,7 @@ function walkAndSetAttributes(eles, attr, val) {
  * @param ele
  * @param attr
  */
-function getAttribute(ele, attr) {
+function getCssAttribute(ele, attr) {
     ele = getSingleElement(ele);
     if (!ele || !attr) {
         return;
@@ -6407,34 +6477,20 @@ function getAttribute(ele, attr) {
     return collectElementsAttributes(ele, attr, 1);
 }
 
-/**
- * Get declared style (Camel or normal form)
- *
- * @param {Element} ele
- * @param {String} attr
- */
-function getStyle(ele, attr) {
-    ele = getSingleElement(ele);
-    if (!ele || !attr) {
-        return;
-    }
-    return collectElementsAttributes(ele, attr, 2);
-}
-
-var setAttribute = walkAndSetAttributes;
-
-Attr.getAttribute = getAttribute;
-Attr.getStyle = getStyle;
+//getAttribute and setAttribute is in DOM.Element, do not overwrite it
+Attr.getCssAttribute = getCssAttribute;
 Attr.getSingleElement = getSingleElement;
-Attr.setAttribute = setAttribute;
+Attr.setCssAttribute = walkAndSetAttributes;
 
 module.exports = Attr;
-},{"./vendor":32,"coreutil/mini":2}],29:[function(require,module,exports){
+},{"./funchelper":33,"./vendor":35,"coreutil/mini":2}],30:[function(require,module,exports){
 /*
  * CSS Attributes Operate
  */
 var Attr = require('./cssattribute');
 var H = require('coreutil/core');
+
+var Func = require('./funchelper');
 
 var Ops = {};
 
@@ -6442,27 +6498,20 @@ var Ops = {};
  * Simple Attributes
  */
 
-function assembleGetterSetters(getter, setter) {
-    return function() {
-        var func = arguments.length === 0 ? getter : setter;
-        return func.apply(this, [this].concat(Array.prototype.slice.call(arguments)));
-    };
-}
-
 function attributeGetterGen(attr) {
     return function(ele) {
-        return Attr.getAttribute(ele, attr);
+        return Attr.getCssAttribute(ele, attr);
     };
 }
 
 function attributeSetterGen(attr) {
     return function(ele, val) {
-        return Attr.setAttribute(ele, attr, val);
+        return Attr.setCssAttribute(ele, attr, val);
     };
 }
 
 function attributeOpAssembled(attr) {
-    return assembleGetterSetters(attributeGetterGen(attr), attributeSetterGen(attr));
+    return Func.assembleFunctions(attributeGetterGen(attr), attributeSetterGen(attr), 0);
 }
 
 Ops.text =    attributeOpAssembled('text');
@@ -6474,15 +6523,15 @@ Ops.parent =  attributeOpAssembled('parent');
 Ops.cssAttr = function(attr, value) {
     if (typeof attr === 'string' && arguments.length === 1) {
         //get
-        return Attr.getAttribute(this, attr);
+        return Attr.getCssAttribute(this, attr);
     } else if (typeof attr === 'object') {
         //set
         var ele = this;
         H.each(attr, function(val, key) {
-            Attr.setAttribute(ele, key, val);
+            Attr.setCssAttribute(ele, key, val);
         });
     } else if (arguments.length === 2) {
-        Attr.setAttribute(this, attr, value);
+        Attr.setCssAttribute(this, attr, value);
     }
 };
 
@@ -6491,7 +6540,7 @@ Ops.cssAttr = function(attr, value) {
  */
 
 module.exports = Ops;
-},{"./cssattribute":28,"coreutil/core":1}],30:[function(require,module,exports){
+},{"./cssattribute":29,"./funchelper":33,"coreutil/core":1}],31:[function(require,module,exports){
 var RS = require('./domresultset');
 var wrap = RS.wrapDom;
 var Mini = require('coreutil/mini');
@@ -6523,19 +6572,19 @@ var $ = function(selector) {
 $.findElement = findElement;
 
 module.exports = $;
-},{"./domresultset":31,"coreutil/mini":2}],31:[function(require,module,exports){
+},{"./domresultset":32,"coreutil/mini":2}],32:[function(require,module,exports){
 var RS = {};
 
-var C = require('coreutil/core');
-var ARS = require('coreutil/src/abstractresultset');
-var Mini = require('coreutil/mini');
+var ARS =      require('coreutil/src/abstractresultset');
+var Mini =     require('coreutil/mini');
 var Selector = require('./cssselector');
-var Attr = require('./cssattribute');
-var Ops = require('./cssoperators');
+var Attr =     require('./attribute');
+var Ops =      require('./cssoperators');
+var NodeOps =  require('./nodeop');
 
 var DomIdentifier = '__isDOM__';
 
-var getSingleElement = Attr.getSingleElement;
+// var getSingleElement = CssAttr.getSingleElement;
 
 //node.js fallback
 var htmlElementObj = function() {};
@@ -6562,14 +6611,6 @@ function registerComponent(name, func) {
     });
 }
 
-function wrapFunction(fn) {
-    return function() {
-        if (checker(arguments[0])) {
-            return fn.apply(this, arguments);
-        }
-    }
-}
-
 /*
  * ResultSet Operations
  *
@@ -6577,36 +6618,46 @@ function wrapFunction(fn) {
  * for example:
  * ban access from DomResultSet.join
  */
-function clone() {
-    //
+/**
+ * Clones a list of nodes or a single node
+ * Supports depth up to 1.
+ *
+ * @memberof {Array|Element}
+ */
+function cloneDomElement(eles, deep) {
+    if (eles instanceof Element) {
+        return eles.cloneNode(!!deep);
+    }
+    if (Mini.isArrayLike(this)) {
+        return Mini.arrayEach(eles, function(ele) {
+            return cloneDomElement(ele, deep);
+        });
+    }
 }
 
-function attribute() {
-    //
-}
-
-function append() {
-    //
-}
-
-function prepend() {
-    //
+function cloneDom(deep) {
+    return cloneDomElement(this || [], deep);
 }
 
 function find(selector) {
     return Selector.findElement(this, selector);
 }
 
-registerComponent("clone",     clone);
-registerComponent("css",       Ops.cssAttr);
-registerComponent("text",      Ops.text);
-registerComponent("attribute", attribute);
-registerComponent("append",    append);
-registerComponent("prepend",   prepend);
-registerComponent("parent",    Ops.parent);
-registerComponent("width",     Ops.width);
-registerComponent("height",    Ops.height);
-registerComponent("find",      find);
+registerComponent("clone",        cloneDom);
+registerComponent("css",          Ops.cssAttr);
+registerComponent("text",         Ops.text);
+registerComponent("attribute",    Attr.attribute);
+registerComponent("getClasses",   Attr.getClasses);
+registerComponent("addClass",     Attr.addClass);
+registerComponent("removeClass",  Attr.removeClass);
+registerComponent("append",       NodeOps.append);
+registerComponent("prepend",      NodeOps.prepend);
+registerComponent("insertHead",   NodeOps.insertHead);
+registerComponent("insertTail",   NodeOps.insertTail);
+registerComponent("parent",       Ops.parent);
+registerComponent("width",        Ops.width);
+registerComponent("height",       Ops.height);
+registerComponent("find",         find);
 
 var wrap = ARS.wrapperGen(DomIdentifier);
 
@@ -6616,7 +6667,159 @@ RS.wrapDom = wrap;
 RS.H$ = Selector;
 
 module.exports = RS;
-},{"./cssattribute":28,"./cssoperators":29,"./cssselector":30,"coreutil/core":1,"coreutil/mini":2,"coreutil/src/abstractresultset":3}],32:[function(require,module,exports){
+},{"./attribute":28,"./cssoperators":30,"./cssselector":31,"./nodeop":34,"coreutil/mini":2,"coreutil/src/abstractresultset":3}],33:[function(require,module,exports){
+var Func = {};
+var Mini = require('coreutil/mini');
+
+function assembleFunctions(func1, func2, desiredArgsSize, earlyExitSize) {
+    return function() {
+        if (arguments.length === earlyExitSize) return;
+        var func = arguments.length === desiredArgsSize ? func1 : func2;
+        return func.apply(this, [this].concat(Array.prototype.slice.call(arguments)));
+    };
+}
+
+Func.assembleFunctions = assembleFunctions;
+
+Func.noop = function(v) {
+    return v;
+};
+
+function copyArray(arr) {
+    var ret = [];
+    for (var i = 0; i < arr.length; i++) {
+        ret[i] = arr[i];
+    }
+    return ret;
+}
+
+function recursivelyDomSomething(elements, collector, initArgs, argProcessor) {
+    //eles, ...args
+    function gen(eles) {
+        var args = arguments;
+        if (eles instanceof Element) {
+            return collector.apply(eles, args);
+        }
+        if (Mini.isArrayLike(eles)) {
+            var ret = [];
+            for (var i = 0; i < eles.length; i++) {
+                var ele = eles[i];
+                if (ele instanceof Element || Mini.isArrayLike(ele)) {
+                    var newArgs = copyArray(args);
+                    newArgs[0] = ele;
+                    ret[i] = gen.apply(ele, (argProcessor || Func.noop)(newArgs, i));
+                }
+            }
+            return ret;
+        }
+    }
+    return gen.apply(elements, initArgs);
+}
+
+Func.createWalker = recursivelyDomSomething;
+
+function arraySplit(arr, ele) {
+    var a = [];
+    var b = [];
+    var e;
+    for (var i = 0; i < arr.length; i++) {
+        if ((e = arr[i]) != ele) {
+            a.push(e);
+        } else {
+            b.push(e);
+        }
+    }
+    return [a, b];
+}
+
+function ensureArrayContains(arr, ele) {
+    return arraySplit(arr, ele)[0].concat([ele]);
+}
+
+function ensureArrayWithout(arr, ele) {
+    return arraySplit(arr, ele)[0];
+}
+
+Func.arrayEnsureContains = ensureArrayContains;
+Func.arrayEnsureWithout = ensureArrayWithout;
+
+module.exports = Func;
+},{"coreutil/mini":2}],34:[function(require,module,exports){
+var N = {};
+
+var Func = require('./funchelper');
+var Mini = require('coreutil/mini');
+
+function insertElementAfter(targetElement, newElement) {
+    if (typeof newElement === 'string') {
+        return targetElement.insertAdjacentHTML('afterend', newElement);
+    }
+    if (targetElement.nodeType !== Element.DOCUMENT_NODE) {
+        targetElement.parentNode.insertBefore(newElement, targetElement.nextSibling);
+    }
+}
+
+function insertElementBefore(targetElement, newElement) {
+    if (typeof newElement === 'string') {
+        return targetElement.insertAdjacentHTML('beforebegin', newElement);
+    }
+    if (targetElement.nodeType !== Element.DOCUMENT_NODE) {
+        targetElement.parentNode.insertBefore(newElement, targetElement);
+    }
+}
+
+function insertElementAtBeginning(targetElement, newElement) {
+    if (typeof newElement === 'string') {
+        return targetElement.insertAdjacentHTML('afterbegin', newElement);
+    }
+    targetElement.insertBefore(newElement, targetElement.firstChild);
+}
+
+function insertElementAtEnd(targetElement, newElement) {
+    if (typeof targetElement === 'string') {
+        return targetElement.insertAdjacentHTML('beforeend', newElement);
+    }
+    targetElement.appendChild(newElement);
+    // targetElement.insertBefore(newElement, targetElement.lastChild);
+}
+
+function basePender(strategy) {
+    return function(base, newElement) {
+        return Func.createWalker(base, strategy, [base, newElement]);
+    };
+}
+
+var baseAppend = basePender(insertElementAfter);
+var basePrepend = basePender(insertElementBefore);
+var baseInsertHead = basePender(insertElementAtBeginning);
+var baseInsertEnd = basePender(insertElementAtEnd);
+
+//can be abstracted
+function pender(basePender) {
+    return function(newElements) {
+        var base = this;
+        if (Mini.isArrayLike(newElements)) {
+            Mini.arrayEach(newElements, function(ele) {
+                basePender(base, ele);
+            });
+        } else {
+            basePender(base, newElements);
+        }
+    };
+}
+
+var append = pender(baseAppend);
+var prepend = pender(basePrepend);
+var insertAtHead = pender(baseInsertHead);
+var insertAtEnd = pender(baseInsertEnd);
+
+N.append = append;
+N.prepend = prepend;
+N.insertHead = insertAtHead;
+N.insertTail = insertAtEnd;
+
+module.exports = N;
+},{"./funchelper":33,"coreutil/mini":2}],35:[function(require,module,exports){
 /*
  * Vendor specified properties list
  */
