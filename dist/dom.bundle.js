@@ -6285,7 +6285,7 @@ Core.root.H$ = DOM;
 
 module.exports = DOM;
 },{"./src/cssattribute":29,"./src/cssselector":31,"./src/domresultset":32,"coreutil/core":1}],28:[function(require,module,exports){
-var Mini = require('coreutil/mini');
+var Func = require('./funchelper');
 
 var Attr = {};
 
@@ -6296,17 +6296,10 @@ function innerGetAttribute(ele, attr) {
     return ele.getAttribute(attr);
 }
 
-function walkAndGetAttributes(eles, attr, postProcess, additionalAttr) {
-    if (eles instanceof Element) {
-        return (postProcess || noop)(innerGetAttribute(eles, attr), additionalAttr);
-    }
-    if (Mini.isArrayLike(eles)) {
-        return Mini.arrayEach(eles, function(ele) {
-            if (ele instanceof Element || Mini.isArrayLike(ele)) {
-                return walkAndGetAttributes(ele, attr);
-            }
-        });
-    }
+function walkAndGetAttributes(eles, attr, postProcess, addtionalAttr) {
+    return Func.createWalker(eles, function () {
+        return (postProcess || noop)(innerGetAttribute(this, attr), addtionalAttr);
+    }, [eles, attr, postProcess, addtionalAttr]);
 }
 
 function innerSetAttribute(ele, attr, val) {
@@ -6314,103 +6307,56 @@ function innerSetAttribute(ele, attr, val) {
 }
 
 function walkAndSetAttributes(eles, attr, val) {
-    if (eles instanceof Element) {
-        return innerSetAttribute(eles, attr, val);
-    }
-    if (Mini.isArrayLike(eles)) {
-        return Mini.arrayEach(eles, function(ele) {
-            if (ele instanceof Element || Mini.isArrayLike(ele)) {
-                return walkAndSetAttributes(ele, attr, val);
-            }
-        });
-    }
+    return Func.createWalker(eles, innerSetAttribute, [eles, attr, val]);
 }
 
 function walkAndSetAttributesBySet(eles, attr, valSet) {
-    if (eles instanceof Element) {
-        return innerSetAttribute(eles, attr, valSet);
-    }
-    if (Mini.isArrayLike(eles)) {
-        var ret = [];
-        for (var i = 0; i < eles.length; i++) {
-            var ele = eles[i];
-            var vals = valSet[i];
-
-            if (ele instanceof Element || Mini.isArrayLike(ele)) {
-                ret[i] = walkAndSetAttributesBySet(ele, attr, vals);
-            }
-        }
-        return ret;
-    }
+    return Func.createWalker(eles, innerSetAttribute, [eles, attr, valSet], function(args, i) {
+        args[2] = args[2][i];
+    });
 }
 
-//ele.attribute(attr, [val])
-function assembledAttributeGetterSetter() {
-    if (arguments.length === 0) return;
-    var func = arguments.length === 1 ? walkAndGetAttributes : walkAndSetAttributes;
-    return func.apply(this, [this].concat(Array.prototype.slice.call(arguments)));
-}
-
-Attr.attribute = assembledAttributeGetterSetter;
+Attr.attribute = Func.assembleFunctions(walkAndGetAttributes, walkAndSetAttributes, 1, 0);
 
 function splitClassString(val) {
     return (val || "").trim().split(/[\s]+/) || [];
 }
 
-function splitInsertClassString(val, clzz) {
-    var clss = splitClassString(val);
-
-    for (var i = 0; i < clss.length; i++) {
-        if (clzz == clss[i]) {
-            return clss;
-        }
-    }
-
-    clss.push(clzz);
-
-    return clss.join(' ');
-}
-
-function splitRemoveClassString(val, clzz) {
-    var clss = splitClassString(val);
-    var post = [];
-
-    for (var i = 0; i < clss.length; i++) {
-        if (clzz != clss[i]) {
-            post.push(clss[i]);
-        }
-    }
-
-    return post.join(' ');
+function splitGen(strategy) {
+    var func = strategy ? Func.arrayEnsureContains : Func.arrayEnsureWithout;
+    return function(val, clzz) {
+        return func(splitClassString(val), clzz).join(' ');
+    };
 }
 
 function getClasses(alternative, parameter) {
-    return walkAndGetAttributes(this, 'class', alternative || splitClassString, parameter);
+    return innerGetClass(this, alternative, parameter);
 }
 
-function addClass(className) {
-    var clss = getClasses.apply(this, [splitInsertClassString, className]);
-
-    walkAndSetAttributesBySet(this, "class", clss);
+function innerGetClass(ele, alternative, parameter) {
+    return walkAndGetAttributes(ele, 'class', alternative || splitClassString, parameter);
 }
 
-function removeClass(className) {
-    var clss = getClasses.apply(this, [splitRemoveClassString, className]);
+function classOpGen(strategy) {
+    return function(className) {
+        var clss = innerGetClass(this, splitGen(strategy), className);
 
-    walkAndSetAttributesBySet(this, "class", clss);
+        walkAndSetAttributesBySet(this, 'class', clss);
+    };
 }
 
 Attr.getClasses = getClasses;
-Attr.addClass = addClass;
-Attr.removeClass = removeClass;
+Attr.addClass = classOpGen(true);
+Attr.removeClass = classOpGen(false);
 
 module.exports = Attr;
-},{"coreutil/mini":2}],29:[function(require,module,exports){
+},{"./funchelper":33}],29:[function(require,module,exports){
 /*
  * CSS Attribute Operation Basic
  */
 var Attr = {};
 
+var Func = require('./funchelper');
 var Vendor = require('./vendor');
 var Mini = require('coreutil/mini');
 
@@ -6480,21 +6426,13 @@ function innerGetAttributeUntil(ele, attr, style) {
 }
 
 function collectElementsAttributes(eles, attr, style) {
-    if (eles instanceof Element) {
-        return innerGetAttributeUntil(eles, attr, style);
-    }
-    if (Mini.isArrayLike(eles)) {
-        return Mini.arrayEach(eles, function(ele) {
-            if (ele instanceof Element || Mini.isArrayLike(ele))
-                return collectElementsAttributes(ele, attr, style);
-        });
-    }
+    return Func.createWalker(eles, innerGetAttributeUntil, [eles, attr, style]);
 }
 
 /*
  * Setters
  */
-//direct way doesn't work, cuz shortcut attributes like clientWidth are readonly
+//sometimes direct way doesn't work, cuz some shortcut attributes like clientWidth are readonly
 function directSetAttribute(ele, attr, val) {
     var mapped = AttributeMap[attr] || [];
     for (var i = 0; i < mapped.length; i++) {
@@ -6519,17 +6457,21 @@ function innerSetAttributeUntil(ele, attr, val) {
     }
 }
 
+// function walkAndSetAttributes(eles, attr, val) {
+//     if (eles instanceof Element) {
+//         return innerSetAttributeUntil(eles, attr, val);
+//     }
+//     if (Mini.isArrayLike(eles)) {
+//         return Mini.arrayEach(eles, function(ele) {
+//             if (ele instanceof Element || Mini.isArrayLike(ele)) {
+//                 return walkAndSetAttributes(ele, attr, val);
+//             }
+//         });
+//     }
+// }
+
 function walkAndSetAttributes(eles, attr, val) {
-    if (eles instanceof Element) {
-        return innerSetAttributeUntil(eles, attr, val);
-    }
-    if (Mini.isArrayLike(eles)) {
-        return Mini.arrayEach(eles, function(ele) {
-            if (ele instanceof Element || Mini.isArrayLike(ele)) {
-                return walkAndSetAttributes(ele, attr, val);
-            }
-        });
-    }
+    return Func.createWalker(eles, innerSetAttributeUntil, [eles, attr, val]);
 }
 
 /**
@@ -6570,25 +6512,20 @@ Attr.getSingleElement = getSingleElement;
 Attr.setCssAttribute = walkAndSetAttributes;
 
 module.exports = Attr;
-},{"./vendor":33,"coreutil/mini":2}],30:[function(require,module,exports){
+},{"./funchelper":33,"./vendor":34,"coreutil/mini":2}],30:[function(require,module,exports){
 /*
  * CSS Attributes Operate
  */
 var Attr = require('./cssattribute');
 var H = require('coreutil/core');
 
+var Func = require('./funchelper');
+
 var Ops = {};
 
 /*
  * Simple Attributes
  */
-
-function assembleGetterSetters(getter, setter) {
-    return function() {
-        var func = arguments.length === 0 ? getter : setter;
-        return func.apply(this, [this].concat(Array.prototype.slice.call(arguments)));
-    };
-}
 
 function attributeGetterGen(attr) {
     return function(ele) {
@@ -6603,7 +6540,7 @@ function attributeSetterGen(attr) {
 }
 
 function attributeOpAssembled(attr) {
-    return assembleGetterSetters(attributeGetterGen(attr), attributeSetterGen(attr));
+    return Func.assembleFunctions(attributeGetterGen(attr), attributeSetterGen(attr), 0);
 }
 
 Ops.text =    attributeOpAssembled('text');
@@ -6632,7 +6569,7 @@ Ops.cssAttr = function(attr, value) {
  */
 
 module.exports = Ops;
-},{"./cssattribute":29,"coreutil/core":1}],31:[function(require,module,exports){
+},{"./cssattribute":29,"./funchelper":33,"coreutil/core":1}],31:[function(require,module,exports){
 var RS = require('./domresultset');
 var wrap = RS.wrapDom;
 var Mini = require('coreutil/mini');
@@ -6757,6 +6694,83 @@ RS.H$ = Selector;
 
 module.exports = RS;
 },{"./attribute":28,"./cssoperators":30,"./cssselector":31,"coreutil/core":1,"coreutil/mini":2,"coreutil/src/abstractresultset":3}],33:[function(require,module,exports){
+var Func = {};
+var Mini = require('coreutil/mini');
+
+function assembleFunctions(func1, func2, desiredArgsSize, earlyExitSize) {
+    return function() {
+        if (arguments.length === earlyExitSize) return;
+        var func = arguments.length === desiredArgsSize ? func1 : func2;
+        return func.apply(this, [this].concat(Array.prototype.slice.call(arguments)));
+    };
+}
+
+Func.assembleFunctions = assembleFunctions;
+
+Func.noop = function(v) {
+    return v;
+};
+
+function copyArray(arr) {
+    var ret = [];
+    for (var i = 0; i < arr.length; i++) {
+        ret[i] = arr[i];
+    }
+    return ret;
+}
+
+function recursivelyDomSomething(elements, collector, initArgs, argProcessor) {
+    //eles, ...args
+    function gen(eles) {
+        var args = arguments;
+        if (eles instanceof Element) {
+            return collector.apply(eles, args);
+        }
+        if (Mini.isArrayLike(eles)) {
+            var ret = [];
+            for (var i = 0; i < eles.length; i++) {
+                var ele = eles[i];
+                if (ele instanceof Element || Mini.isArrayLike(ele)) {
+                    var newArgs = copyArray(args);
+                    newArgs[0] = ele;
+                    ret[i] = gen.apply(ele, (argProcessor || Func.noop)(newArgs, i));
+                }
+            }
+            return ret;
+        }
+    }
+    return gen.apply(elements, initArgs);
+}
+
+Func.createWalker = recursivelyDomSomething;
+
+function arraySplit(arr, ele) {
+    var a = [];
+    var b = [];
+    var e;
+    for (var i = 0; i < arr.length; i++) {
+        if ((e = arr[i]) != ele) {
+            a.push(e);
+        } else {
+            b.push(e);
+        }
+    }
+    return [a, b];
+}
+
+function ensureArrayContains(arr, ele) {
+    return arraySplit(arr, ele)[0].concat([ele]);
+}
+
+function ensureArrayWithout(arr, ele) {
+    return arraySplit(arr, ele)[0];
+}
+
+Func.arrayEnsureContains = ensureArrayContains;
+Func.arrayEnsureWithout = ensureArrayWithout;
+
+module.exports = Func;
+},{"coreutil/mini":2}],34:[function(require,module,exports){
 /*
  * Vendor specified properties list
  */

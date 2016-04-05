@@ -3,6 +3,7 @@
  */
 var Attr = {};
 
+var Func = require('./funchelper');
 var Vendor = require('./vendor');
 var Mini = require('coreutil/mini');
 
@@ -72,21 +73,13 @@ function innerGetAttributeUntil(ele, attr, style) {
 }
 
 function collectElementsAttributes(eles, attr, style) {
-    if (eles instanceof Element) {
-        return innerGetAttributeUntil(eles, attr, style);
-    }
-    if (Mini.isArrayLike(eles)) {
-        return Mini.arrayEach(eles, function(ele) {
-            if (ele instanceof Element || Mini.isArrayLike(ele))
-                return collectElementsAttributes(ele, attr, style);
-        });
-    }
+    return Func.createWalker(eles, innerGetAttributeUntil, [eles, attr, style]);
 }
 
 /*
  * Setters
  */
-//direct way doesn't work, cuz shortcut attributes like clientWidth are readonly
+//sometimes direct way doesn't work, cuz some shortcut attributes like clientWidth are readonly
 function directSetAttribute(ele, attr, val) {
     var mapped = AttributeMap[attr] || [];
     for (var i = 0; i < mapped.length; i++) {
@@ -112,16 +105,7 @@ function innerSetAttributeUntil(ele, attr, val) {
 }
 
 function walkAndSetAttributes(eles, attr, val) {
-    if (eles instanceof Element) {
-        return innerSetAttributeUntil(eles, attr, val);
-    }
-    if (Mini.isArrayLike(eles)) {
-        return Mini.arrayEach(eles, function(ele) {
-            if (ele instanceof Element || Mini.isArrayLike(ele)) {
-                return walkAndSetAttributes(ele, attr, val);
-            }
-        });
-    }
+    return Func.createWalker(eles, innerSetAttributeUntil, [eles, attr, val]);
 }
 
 /**
@@ -141,23 +125,8 @@ function getCssAttribute(ele, attr) {
     return collectElementsAttributes(ele, attr, 1);
 }
 
-/**
- * Get declared style (Camel or normal form)
- *
- * @param {Element} ele
- * @param {String} attr
- */
-function getStyle(ele, attr) {
-    ele = getSingleElement(ele);
-    if (!ele || !attr) {
-        return;
-    }
-    return collectElementsAttributes(ele, attr, 2);
-}
-
 //getAttribute and setAttribute is in DOM.Element, do not overwrite it
 Attr.getCssAttribute = getCssAttribute;
-Attr.getStyle = getStyle;
 Attr.getSingleElement = getSingleElement;
 Attr.setCssAttribute = walkAndSetAttributes;
 

@@ -4,18 +4,13 @@
 var Attr = require('./cssattribute');
 var H = require('coreutil/core');
 
+var Func = require('./funchelper');
+
 var Ops = {};
 
 /*
  * Simple Attributes
  */
-
-function assembleGetterSetters(getter, setter) {
-    return function() {
-        var func = arguments.length === 0 ? getter : setter;
-        return func.apply(this, [this].concat(Array.prototype.slice.call(arguments)));
-    };
-}
 
 function attributeGetterGen(attr) {
     return function(ele) {
@@ -30,7 +25,7 @@ function attributeSetterGen(attr) {
 }
 
 function attributeOpAssembled(attr) {
-    return assembleGetterSetters(attributeGetterGen(attr), attributeSetterGen(attr));
+    return Func.assembleFunctions(attributeGetterGen(attr), attributeSetterGen(attr), 0);
 }
 
 Ops.text =    attributeOpAssembled('text');

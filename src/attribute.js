@@ -1,4 +1,4 @@
-var Mini = require('coreutil/mini');
+var Func = require('./funchelper');
 
 var Attr = {};
 
@@ -9,17 +9,10 @@ function innerGetAttribute(ele, attr) {
     return ele.getAttribute(attr);
 }
 
-function walkAndGetAttributes(eles, attr, postProcess, additionalAttr) {
-    if (eles instanceof Element) {
-        return (postProcess || noop)(innerGetAttribute(eles, attr), additionalAttr);
-    }
-    if (Mini.isArrayLike(eles)) {
-        return Mini.arrayEach(eles, function(ele) {
-            if (ele instanceof Element || Mini.isArrayLike(ele)) {
-                return walkAndGetAttributes(ele, attr);
-            }
-        });
-    }
+function walkAndGetAttributes(eles, attr, postProcess, addtionalAttr) {
+    return Func.createWalker(eles, function () {
+        return (postProcess || noop)(innerGetAttribute(this, attr), addtionalAttr);
+    }, [eles, attr, postProcess, addtionalAttr]);
 }
 
 function innerSetAttribute(ele, attr, val) {
@@ -27,94 +20,46 @@ function innerSetAttribute(ele, attr, val) {
 }
 
 function walkAndSetAttributes(eles, attr, val) {
-    if (eles instanceof Element) {
-        return innerSetAttribute(eles, attr, val);
-    }
-    if (Mini.isArrayLike(eles)) {
-        return Mini.arrayEach(eles, function(ele) {
-            if (ele instanceof Element || Mini.isArrayLike(ele)) {
-                return walkAndSetAttributes(ele, attr, val);
-            }
-        });
-    }
+    return Func.createWalker(eles, innerSetAttribute, [eles, attr, val]);
 }
 
 function walkAndSetAttributesBySet(eles, attr, valSet) {
-    if (eles instanceof Element) {
-        return innerSetAttribute(eles, attr, valSet);
-    }
-    if (Mini.isArrayLike(eles)) {
-        var ret = [];
-        for (var i = 0; i < eles.length; i++) {
-            var ele = eles[i];
-            var vals = valSet[i];
-
-            if (ele instanceof Element || Mini.isArrayLike(ele)) {
-                ret[i] = walkAndSetAttributesBySet(ele, attr, vals);
-            }
-        }
-        return ret;
-    }
+    return Func.createWalker(eles, innerSetAttribute, [eles, attr, valSet], function(args, i) {
+        args[2] = args[2][i];
+    });
 }
 
-//ele.attribute(attr, [val])
-function assembledAttributeGetterSetter() {
-    if (arguments.length === 0) return;
-    var func = arguments.length === 1 ? walkAndGetAttributes : walkAndSetAttributes;
-    return func.apply(this, [this].concat(Array.prototype.slice.call(arguments)));
-}
-
-Attr.attribute = assembledAttributeGetterSetter;
+Attr.attribute = Func.assembleFunctions(walkAndGetAttributes, walkAndSetAttributes, 1, 0);
 
 function splitClassString(val) {
     return (val || "").trim().split(/[\s]+/) || [];
 }
 
-function splitInsertClassString(val, clzz) {
-    var clss = splitClassString(val);
-
-    for (var i = 0; i < clss.length; i++) {
-        if (clzz == clss[i]) {
-            return clss;
-        }
-    }
-
-    clss.push(clzz);
-
-    return clss.join(' ');
-}
-
-function splitRemoveClassString(val, clzz) {
-    var clss = splitClassString(val);
-    var post = [];
-
-    for (var i = 0; i < clss.length; i++) {
-        if (clzz != clss[i]) {
-            post.push(clss[i]);
-        }
-    }
-
-    return post.join(' ');
+function splitGen(strategy) {
+    var func = strategy ? Func.arrayEnsureContains : Func.arrayEnsureWithout;
+    return function(val, clzz) {
+        return func(splitClassString(val), clzz).join(' ');
+    };
 }
 
 function getClasses(alternative, parameter) {
-    return walkAndGetAttributes(this, 'class', alternative || splitClassString, parameter);
+    return innerGetClass(this, alternative, parameter);
 }
 
-function addClass(className) {
-    var clss = getClasses.apply(this, [splitInsertClassString, className]);
-
-    walkAndSetAttributesBySet(this, "class", clss);
+function innerGetClass(ele, alternative, parameter) {
+    return walkAndGetAttributes(ele, 'class', alternative || splitClassString, parameter);
 }
 
-function removeClass(className) {
-    var clss = getClasses.apply(this, [splitRemoveClassString, className]);
+function classOpGen(strategy) {
+    return function(className) {
+        var clss = innerGetClass(this, splitGen(strategy), className);
 
-    walkAndSetAttributesBySet(this, "class", clss);
+        walkAndSetAttributesBySet(this, 'class', clss);
+    };
 }
 
 Attr.getClasses = getClasses;
-Attr.addClass = addClass;
-Attr.removeClass = removeClass;
+Attr.addClass = classOpGen(true);
+Attr.removeClass = classOpGen(false);
 
 module.exports = Attr;
