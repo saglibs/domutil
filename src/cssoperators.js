@@ -19,13 +19,13 @@ function assembleGetterSetters(getter, setter) {
 
 function attributeGetterGen(attr) {
     return function(ele) {
-        return Attr.getAttribute(ele, attr);
+        return Attr.getCssAttribute(ele, attr);
     };
 }
 
 function attributeSetterGen(attr) {
     return function(ele, val) {
-        return Attr.setAttribute(ele, attr, val);
+        return Attr.setCssAttribute(ele, attr, val);
     };
 }
 
@@ -42,15 +42,15 @@ Ops.parent =  attributeOpAssembled('parent');
 Ops.cssAttr = function(attr, value) {
     if (typeof attr === 'string' && arguments.length === 1) {
         //get
-        return Attr.getAttribute(this, attr);
+        return Attr.getCssAttribute(this, attr);
     } else if (typeof attr === 'object') {
         //set
         var ele = this;
         H.each(attr, function(val, key) {
-            Attr.setAttribute(ele, key, val);
+            Attr.setCssAttribute(ele, key, val);
         });
     } else if (arguments.length === 2) {
-        Attr.setAttribute(this, attr, value);
+        Attr.setCssAttribute(this, attr, value);
     }
 };
 

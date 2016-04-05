@@ -1469,6 +1469,15 @@ function keys() {
     return H.keys(this);
 }
 
+/**
+ * Returns the flatten array of an nested array.
+ *
+ * @returns {*|Array}
+ */
+function flatten() {
+    return H.flatten(this) || [];
+}
+
 registerComponent("each",    each);
 registerComponent("filter",  filter);
 registerComponent("sortBy",  sortBy);
@@ -1479,6 +1488,7 @@ registerComponent("sum",     sum);
 registerComponent("Length",  Length);
 registerComponent("values",  values);
 registerComponent("keys",    keys);
+registerComponent("flatten", flatten);
 
 /**
  * Wrap an object to default ResultSet
@@ -1619,6 +1629,13 @@ try {
         }
     }
 }());
+
+//Polyfill for IE<9
+if (!String.prototype.trim) {
+    String.prototype.trim = function () {
+        return this.replace(/^[\s\uFEFF\xA0]+|[\s\uFEFF\xA0]+$/g, '');
+    };
+}
 
 S.addProperty = addProperty;
 S.createObject = createObject;
@@ -2114,7 +2131,7 @@ module.exports = getLength;
 (function (global){
 /**
  * @license
- * lodash 4.7.0 (Custom Build) <https://lodash.com/>
+ * lodash 4.8.2 (Custom Build) <https://lodash.com/>
  * Build: `lodash core -o ./dist/lodash.core.js`
  * Copyright jQuery Foundation and other contributors <https://jquery.org/>
  * Released under MIT license <https://lodash.com/license>
@@ -2127,7 +2144,7 @@ module.exports = getLength;
   var undefined;
 
   /** Used as the semantic version number. */
-  var VERSION = '4.7.0';
+  var VERSION = '4.8.2';
 
   /** Used as the `TypeError` message for "Functions" methods. */
   var FUNC_ERROR_TEXT = 'Expected a function';
@@ -2471,7 +2488,8 @@ module.exports = getLength;
   var idCounter = 0;
 
   /**
-   * Used to resolve the [`toStringTag`](http://ecma-international.org/ecma-262/6.0/#sec-object.prototype.tostring)
+   * Used to resolve the
+   * [`toStringTag`](http://ecma-international.org/ecma-262/6.0/#sec-object.prototype.tostring)
    * of values.
    */
   var objectToString = objectProto.toString;
@@ -3254,8 +3272,8 @@ module.exports = getLength;
    */
   function createCtorWrapper(Ctor) {
     return function() {
-      // Use a `switch` statement to work with class constructors.
-      // See http://ecma-international.org/ecma-262/6.0/#sec-ecmascript-function-objects-call-thisargument-argumentslist
+      // Use a `switch` statement to work with class constructors. See
+      // http://ecma-international.org/ecma-262/6.0/#sec-ecmascript-function-objects-call-thisargument-argumentslist
       // for more details.
       var args = arguments;
       var thisBinding = baseCreate(Ctor.prototype),
@@ -3268,9 +3286,8 @@ module.exports = getLength;
   }
 
   /**
-   * Creates a function that wraps `func` to invoke it with the optional `this`
-   * binding of `thisArg` and the `partials` prepended to those provided to
-   * the wrapper.
+   * Creates a function that wraps `func` to invoke it with the `this` binding
+   * of `thisArg` and `partials` prepended to the arguments it receives.
    *
    * @private
    * @param {Function} func The function to wrap.
@@ -3404,7 +3421,8 @@ module.exports = getLength;
       case regexpTag:
       case stringTag:
         // Coerce regexes to strings and treat strings, primitives and objects,
-        // as equal. See https://es5.github.io/#x15.10.6.4 for more details.
+        // as equal. See http://www.ecma-international.org/ecma-262/6.0/#sec-regexp.prototype.tostring
+        // for more details.
         return object == (other + '');
 
     }
@@ -4019,7 +4037,7 @@ module.exports = getLength;
   }
 
   /**
-   * Creates an array of values by running each element in `collection` through
+   * Creates an array of values by running each element in `collection` thru
    * `iteratee`. The iteratee is invoked with three arguments:
    * (value, index|key, collection).
    *
@@ -4027,10 +4045,10 @@ module.exports = getLength;
    * `_.every`, `_.filter`, `_.map`, `_.mapValues`, `_.reject`, and `_.some`.
    *
    * The guarded methods are:
-   * `ary`, `curry`, `curryRight`, `drop`, `dropRight`, `every`, `fill`,
-   * `invert`, `parseInt`, `random`, `range`, `rangeRight`, `slice`, `some`,
-   * `sortBy`, `take`, `takeRight`, `template`, `trim`, `trimEnd`, `trimStart`,
-   * and `words`
+   * `ary`, `chunk`, `curry`, `curryRight`, `drop`, `dropRight`, `every`,
+   * `fill`, `invert`, `parseInt`, `random`, `range`, `rangeRight`, `repeat`,
+   * `sampleSize`, `slice`, `some`, `sortBy`, `take`, `takeRight`, `template`,
+   * `trim`, `trimEnd`, `trimStart`, and `words`
    *
    * @static
    * @memberOf _
@@ -4067,7 +4085,7 @@ module.exports = getLength;
 
   /**
    * Reduces `collection` to a value which is the accumulated result of running
-   * each element in `collection` through `iteratee`, where each successive
+   * each element in `collection` thru `iteratee`, where each successive
    * invocation is supplied the return value of the previous. If `accumulator`
    * is not given the first element of `collection` is used as the initial
    * value. The iteratee is invoked with four arguments:
@@ -4178,7 +4196,7 @@ module.exports = getLength;
 
   /**
    * Creates an array of elements, sorted in ascending order by the results of
-   * running each element in a collection through each iteratee. This method
+   * running each element in a collection thru each iteratee. This method
    * performs a stable sort, that is, it preserves the original sort order of
    * equal elements. The iteratees are invoked with one argument: (value).
    *
@@ -4260,8 +4278,7 @@ module.exports = getLength;
 
   /**
    * Creates a function that invokes `func` with the `this` binding of `thisArg`
-   * and prepends any additional `_.bind` arguments to those provided to the
-   * bound function.
+   * and `partials` prepended to the arguments it receives.
    *
    * The `_.bind.placeholder` value, which defaults to `_` in monolithic builds,
    * may be used as a placeholder for partially applied arguments.
@@ -4904,8 +4921,9 @@ module.exports = getLength;
   }
 
   /**
-   * Checks if `value` is the [language type](https://es5.github.io/#x8) of `Object`.
-   * (e.g. arrays, functions, objects, regexes, `new Number(0)`, and `new String('')`)
+   * Checks if `value` is the
+   * [language type](http://www.ecma-international.org/ecma-262/6.0/#sec-ecmascript-language-types)
+   * of `Object`. (e.g. arrays, functions, objects, regexes, `new Number(0)`, and `new String('')`)
    *
    * @static
    * @memberOf _
@@ -4963,9 +4981,10 @@ module.exports = getLength;
   /**
    * Checks if `value` is `NaN`.
    *
-   * **Note:** This method is not the same as
-   * [`isNaN`](https://es5.github.io/#x15.1.2.4) which returns `true` for
-   * `undefined` and other non-numeric values.
+   * **Note:** This method is based on
+   * [`Number.isNaN`](https://mdn.io/Number/isNaN) and is not the same as
+   * global [`isNaN`](https://mdn.io/isNaN) which returns `true` for
+   * `undefined` and other non-number values.
    *
    * @static
    * @memberOf _
@@ -6147,7 +6166,8 @@ var funcTag = '[object Function]',
 var objectProto = Object.prototype;
 
 /**
- * Used to resolve the [`toStringTag`](http://ecma-international.org/ecma-262/6.0/#sec-object.prototype.tostring)
+ * Used to resolve the
+ * [`toStringTag`](http://ecma-international.org/ecma-262/6.0/#sec-object.prototype.tostring)
  * of values.
  */
 var objectToString = objectProto.toString;
@@ -6220,8 +6240,9 @@ module.exports = isLength;
 
 },{}],26:[function(require,module,exports){
 /**
- * Checks if `value` is the [language type](https://es5.github.io/#x8) of `Object`.
- * (e.g. arrays, functions, objects, regexes, `new Number(0)`, and `new String('')`)
+ * Checks if `value` is the
+ * [language type](http://www.ecma-international.org/ecma-262/6.0/#sec-ecmascript-language-types)
+ * of `Object`. (e.g. arrays, functions, objects, regexes, `new Number(0)`, and `new String('')`)
  *
  * @static
  * @memberOf _
@@ -6263,7 +6284,128 @@ Core.extend(Core, Attr);
 Core.root.H$ = DOM;
 
 module.exports = DOM;
-},{"./src/cssattribute":28,"./src/cssselector":30,"./src/domresultset":31,"coreutil/core":1}],28:[function(require,module,exports){
+},{"./src/cssattribute":29,"./src/cssselector":31,"./src/domresultset":32,"coreutil/core":1}],28:[function(require,module,exports){
+var Mini = require('coreutil/mini');
+
+var Attr = {};
+
+function noop(v) {return v}
+
+//TODO: this code style apprears for 3 times+, abstract it in the future
+function innerGetAttribute(ele, attr) {
+    return ele.getAttribute(attr);
+}
+
+function walkAndGetAttributes(eles, attr, postProcess, additionalAttr) {
+    if (eles instanceof Element) {
+        return (postProcess || noop)(innerGetAttribute(eles, attr), additionalAttr);
+    }
+    if (Mini.isArrayLike(eles)) {
+        return Mini.arrayEach(eles, function(ele) {
+            if (ele instanceof Element || Mini.isArrayLike(ele)) {
+                return walkAndGetAttributes(ele, attr);
+            }
+        });
+    }
+}
+
+function innerSetAttribute(ele, attr, val) {
+    ele.setAttribute(attr, val);
+}
+
+function walkAndSetAttributes(eles, attr, val) {
+    if (eles instanceof Element) {
+        return innerSetAttribute(eles, attr, val);
+    }
+    if (Mini.isArrayLike(eles)) {
+        return Mini.arrayEach(eles, function(ele) {
+            if (ele instanceof Element || Mini.isArrayLike(ele)) {
+                return walkAndSetAttributes(ele, attr, val);
+            }
+        });
+    }
+}
+
+function walkAndSetAttributesBySet(eles, attr, valSet) {
+    if (eles instanceof Element) {
+        return innerSetAttribute(eles, attr, valSet);
+    }
+    if (Mini.isArrayLike(eles)) {
+        var ret = [];
+        for (var i = 0; i < eles.length; i++) {
+            var ele = eles[i];
+            var vals = valSet[i];
+
+            if (ele instanceof Element || Mini.isArrayLike(ele)) {
+                ret[i] = walkAndSetAttributesBySet(ele, attr, vals);
+            }
+        }
+        return ret;
+    }
+}
+
+//ele.attribute(attr, [val])
+function assembledAttributeGetterSetter() {
+    if (arguments.length === 0) return;
+    var func = arguments.length === 1 ? walkAndGetAttributes : walkAndSetAttributes;
+    return func.apply(this, [this].concat(Array.prototype.slice.call(arguments)));
+}
+
+Attr.attribute = assembledAttributeGetterSetter;
+
+function splitClassString(val) {
+    return (val || "").trim().split(/[\s]+/) || [];
+}
+
+function splitInsertClassString(val, clzz) {
+    var clss = splitClassString(val);
+
+    for (var i = 0; i < clss.length; i++) {
+        if (clzz == clss[i]) {
+            return clss;
+        }
+    }
+
+    clss.push(clzz);
+
+    return clss.join(' ');
+}
+
+function splitRemoveClassString(val, clzz) {
+    var clss = splitClassString(val);
+    var post = [];
+
+    for (var i = 0; i < clss.length; i++) {
+        if (clzz != clss[i]) {
+            post.push(clss[i]);
+        }
+    }
+
+    return post.join(' ');
+}
+
+function getClasses(alternative, parameter) {
+    return walkAndGetAttributes(this, 'class', alternative || splitClassString, parameter);
+}
+
+function addClass(className) {
+    var clss = getClasses.apply(this, [splitInsertClassString, className]);
+
+    walkAndSetAttributesBySet(this, "class", clss);
+}
+
+function removeClass(className) {
+    var clss = getClasses.apply(this, [splitRemoveClassString, className]);
+
+    walkAndSetAttributesBySet(this, "class", clss);
+}
+
+Attr.getClasses = getClasses;
+Attr.addClass = addClass;
+Attr.removeClass = removeClass;
+
+module.exports = Attr;
+},{"coreutil/mini":2}],29:[function(require,module,exports){
 /*
  * CSS Attribute Operation Basic
  */
@@ -6399,7 +6541,7 @@ function walkAndSetAttributes(eles, attr, val) {
  * @param ele
  * @param attr
  */
-function getAttribute(ele, attr) {
+function getCssAttribute(ele, attr) {
     ele = getSingleElement(ele);
     if (!ele || !attr) {
         return;
@@ -6421,15 +6563,14 @@ function getStyle(ele, attr) {
     return collectElementsAttributes(ele, attr, 2);
 }
 
-var setAttribute = walkAndSetAttributes;
-
-Attr.getAttribute = getAttribute;
+//getAttribute and setAttribute is in DOM.Element, do not overwrite it
+Attr.getCssAttribute = getCssAttribute;
 Attr.getStyle = getStyle;
 Attr.getSingleElement = getSingleElement;
-Attr.setAttribute = setAttribute;
+Attr.setCssAttribute = walkAndSetAttributes;
 
 module.exports = Attr;
-},{"./vendor":32,"coreutil/mini":2}],29:[function(require,module,exports){
+},{"./vendor":33,"coreutil/mini":2}],30:[function(require,module,exports){
 /*
  * CSS Attributes Operate
  */
@@ -6451,13 +6592,13 @@ function assembleGetterSetters(getter, setter) {
 
 function attributeGetterGen(attr) {
     return function(ele) {
-        return Attr.getAttribute(ele, attr);
+        return Attr.getCssAttribute(ele, attr);
     };
 }
 
 function attributeSetterGen(attr) {
     return function(ele, val) {
-        return Attr.setAttribute(ele, attr, val);
+        return Attr.setCssAttribute(ele, attr, val);
     };
 }
 
@@ -6474,15 +6615,15 @@ Ops.parent =  attributeOpAssembled('parent');
 Ops.cssAttr = function(attr, value) {
     if (typeof attr === 'string' && arguments.length === 1) {
         //get
-        return Attr.getAttribute(this, attr);
+        return Attr.getCssAttribute(this, attr);
     } else if (typeof attr === 'object') {
         //set
         var ele = this;
         H.each(attr, function(val, key) {
-            Attr.setAttribute(ele, key, val);
+            Attr.setCssAttribute(ele, key, val);
         });
     } else if (arguments.length === 2) {
-        Attr.setAttribute(this, attr, value);
+        Attr.setCssAttribute(this, attr, value);
     }
 };
 
@@ -6491,7 +6632,7 @@ Ops.cssAttr = function(attr, value) {
  */
 
 module.exports = Ops;
-},{"./cssattribute":28,"coreutil/core":1}],30:[function(require,module,exports){
+},{"./cssattribute":29,"coreutil/core":1}],31:[function(require,module,exports){
 var RS = require('./domresultset');
 var wrap = RS.wrapDom;
 var Mini = require('coreutil/mini');
@@ -6523,19 +6664,19 @@ var $ = function(selector) {
 $.findElement = findElement;
 
 module.exports = $;
-},{"./domresultset":31,"coreutil/mini":2}],31:[function(require,module,exports){
+},{"./domresultset":32,"coreutil/mini":2}],32:[function(require,module,exports){
 var RS = {};
 
 var C = require('coreutil/core');
 var ARS = require('coreutil/src/abstractresultset');
 var Mini = require('coreutil/mini');
 var Selector = require('./cssselector');
-var Attr = require('./cssattribute');
+var Attr = require('./attribute');
 var Ops = require('./cssoperators');
 
 var DomIdentifier = '__isDOM__';
 
-var getSingleElement = Attr.getSingleElement;
+// var getSingleElement = CssAttr.getSingleElement;
 
 //node.js fallback
 var htmlElementObj = function() {};
@@ -6581,10 +6722,6 @@ function clone() {
     //
 }
 
-function attribute() {
-    //
-}
-
 function append() {
     //
 }
@@ -6597,16 +6734,19 @@ function find(selector) {
     return Selector.findElement(this, selector);
 }
 
-registerComponent("clone",     clone);
-registerComponent("css",       Ops.cssAttr);
-registerComponent("text",      Ops.text);
-registerComponent("attribute", attribute);
-registerComponent("append",    append);
-registerComponent("prepend",   prepend);
-registerComponent("parent",    Ops.parent);
-registerComponent("width",     Ops.width);
-registerComponent("height",    Ops.height);
-registerComponent("find",      find);
+registerComponent("clone",        clone);
+registerComponent("css",          Ops.cssAttr);
+registerComponent("text",         Ops.text);
+registerComponent("attribute",    Attr.attribute);
+registerComponent("getClasses",   Attr.getClasses);
+registerComponent("addClass",     Attr.addClass);
+registerComponent("removeClass",  Attr.removeClass);
+registerComponent("append",       append);
+registerComponent("prepend",      prepend);
+registerComponent("parent",       Ops.parent);
+registerComponent("width",        Ops.width);
+registerComponent("height",       Ops.height);
+registerComponent("find",         find);
 
 var wrap = ARS.wrapperGen(DomIdentifier);
 
@@ -6616,7 +6756,7 @@ RS.wrapDom = wrap;
 RS.H$ = Selector;
 
 module.exports = RS;
-},{"./cssattribute":28,"./cssoperators":29,"./cssselector":30,"coreutil/core":1,"coreutil/mini":2,"coreutil/src/abstractresultset":3}],32:[function(require,module,exports){
+},{"./attribute":28,"./cssoperators":30,"./cssselector":31,"coreutil/core":1,"coreutil/mini":2,"coreutil/src/abstractresultset":3}],33:[function(require,module,exports){
 /*
  * Vendor specified properties list
  */

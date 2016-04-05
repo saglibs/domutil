@@ -133,7 +133,7 @@ function walkAndSetAttributes(eles, attr, val) {
  * @param ele
  * @param attr
  */
-function getAttribute(ele, attr) {
+function getCssAttribute(ele, attr) {
     ele = getSingleElement(ele);
     if (!ele || !attr) {
         return;
@@ -155,11 +155,10 @@ function getStyle(ele, attr) {
     return collectElementsAttributes(ele, attr, 2);
 }
 
-var setAttribute = walkAndSetAttributes;
-
-Attr.getAttribute = getAttribute;
+//getAttribute and setAttribute is in DOM.Element, do not overwrite it
+Attr.getCssAttribute = getCssAttribute;
 Attr.getStyle = getStyle;
 Attr.getSingleElement = getSingleElement;
-Attr.setAttribute = setAttribute;
+Attr.setCssAttribute = walkAndSetAttributes;
 
 module.exports = Attr;
