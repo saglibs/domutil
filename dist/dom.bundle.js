@@ -6291,7 +6291,6 @@ var Attr = {};
 
 function noop(v) {return v}
 
-//TODO: this code style apprears for 3 times+, abstract it in the future
 function innerGetAttribute(ele, attr) {
     return ele.getAttribute(attr);
 }
@@ -6457,19 +6456,6 @@ function innerSetAttributeUntil(ele, attr, val) {
     }
 }
 
-// function walkAndSetAttributes(eles, attr, val) {
-//     if (eles instanceof Element) {
-//         return innerSetAttributeUntil(eles, attr, val);
-//     }
-//     if (Mini.isArrayLike(eles)) {
-//         return Mini.arrayEach(eles, function(ele) {
-//             if (ele instanceof Element || Mini.isArrayLike(ele)) {
-//                 return walkAndSetAttributes(ele, attr, val);
-//             }
-//         });
-//     }
-// }
-
 function walkAndSetAttributes(eles, attr, val) {
     return Func.createWalker(eles, innerSetAttributeUntil, [eles, attr, val]);
 }
@@ -6491,28 +6477,13 @@ function getCssAttribute(ele, attr) {
     return collectElementsAttributes(ele, attr, 1);
 }
 
-/**
- * Get declared style (Camel or normal form)
- *
- * @param {Element} ele
- * @param {String} attr
- */
-function getStyle(ele, attr) {
-    ele = getSingleElement(ele);
-    if (!ele || !attr) {
-        return;
-    }
-    return collectElementsAttributes(ele, attr, 2);
-}
-
 //getAttribute and setAttribute is in DOM.Element, do not overwrite it
 Attr.getCssAttribute = getCssAttribute;
-Attr.getStyle = getStyle;
 Attr.getSingleElement = getSingleElement;
 Attr.setCssAttribute = walkAndSetAttributes;
 
 module.exports = Attr;
-},{"./funchelper":33,"./vendor":34,"coreutil/mini":2}],30:[function(require,module,exports){
+},{"./funchelper":33,"./vendor":35,"coreutil/mini":2}],30:[function(require,module,exports){
 /*
  * CSS Attributes Operate
  */
@@ -6604,12 +6575,12 @@ module.exports = $;
 },{"./domresultset":32,"coreutil/mini":2}],32:[function(require,module,exports){
 var RS = {};
 
-var C = require('coreutil/core');
-var ARS = require('coreutil/src/abstractresultset');
-var Mini = require('coreutil/mini');
+var ARS =      require('coreutil/src/abstractresultset');
+var Mini =     require('coreutil/mini');
 var Selector = require('./cssselector');
-var Attr = require('./attribute');
-var Ops = require('./cssoperators');
+var Attr =     require('./attribute');
+var Ops =      require('./cssoperators');
+var NodeOps =  require('./nodeop');
 
 var DomIdentifier = '__isDOM__';
 
@@ -6640,14 +6611,6 @@ function registerComponent(name, func) {
     });
 }
 
-function wrapFunction(fn) {
-    return function() {
-        if (checker(arguments[0])) {
-            return fn.apply(this, arguments);
-        }
-    }
-}
-
 /*
  * ResultSet Operations
  *
@@ -6655,31 +6618,42 @@ function wrapFunction(fn) {
  * for example:
  * ban access from DomResultSet.join
  */
-function clone() {
-    //
+/**
+ * Clones a list of nodes or a single node
+ * Supports depth up to 1.
+ *
+ * @memberof {Array|Element}
+ */
+function cloneDomElement(eles, deep) {
+    if (eles instanceof Element) {
+        return eles.cloneNode(!!deep);
+    }
+    if (Mini.isArrayLike(this)) {
+        return Mini.arrayEach(eles, function(ele) {
+            return cloneDomElement(ele, deep);
+        });
+    }
 }
 
-function append() {
-    //
-}
-
-function prepend() {
-    //
+function cloneDom(deep) {
+    return cloneDomElement(this || [], deep);
 }
 
 function find(selector) {
     return Selector.findElement(this, selector);
 }
 
-registerComponent("clone",        clone);
+registerComponent("clone",        cloneDom);
 registerComponent("css",          Ops.cssAttr);
 registerComponent("text",         Ops.text);
 registerComponent("attribute",    Attr.attribute);
 registerComponent("getClasses",   Attr.getClasses);
 registerComponent("addClass",     Attr.addClass);
 registerComponent("removeClass",  Attr.removeClass);
-registerComponent("append",       append);
-registerComponent("prepend",      prepend);
+registerComponent("append",       NodeOps.append);
+registerComponent("prepend",      NodeOps.prepend);
+registerComponent("insertHead",   NodeOps.insertHead);
+registerComponent("insertTail",   NodeOps.insertTail);
 registerComponent("parent",       Ops.parent);
 registerComponent("width",        Ops.width);
 registerComponent("height",       Ops.height);
@@ -6693,7 +6667,7 @@ RS.wrapDom = wrap;
 RS.H$ = Selector;
 
 module.exports = RS;
-},{"./attribute":28,"./cssoperators":30,"./cssselector":31,"coreutil/core":1,"coreutil/mini":2,"coreutil/src/abstractresultset":3}],33:[function(require,module,exports){
+},{"./attribute":28,"./cssoperators":30,"./cssselector":31,"./nodeop":34,"coreutil/mini":2,"coreutil/src/abstractresultset":3}],33:[function(require,module,exports){
 var Func = {};
 var Mini = require('coreutil/mini');
 
@@ -6771,6 +6745,81 @@ Func.arrayEnsureWithout = ensureArrayWithout;
 
 module.exports = Func;
 },{"coreutil/mini":2}],34:[function(require,module,exports){
+var N = {};
+
+var Func = require('./funchelper');
+var Mini = require('coreutil/mini');
+
+function insertElementAfter(targetElement, newElement) {
+    if (typeof newElement === 'string') {
+        return targetElement.insertAdjacentHTML('afterend', newElement);
+    }
+    if (targetElement.nodeType !== Element.DOCUMENT_NODE) {
+        targetElement.parentNode.insertBefore(newElement, targetElement.nextSibling);
+    }
+}
+
+function insertElementBefore(targetElement, newElement) {
+    if (typeof newElement === 'string') {
+        return targetElement.insertAdjacentHTML('beforebegin', newElement);
+    }
+    if (targetElement.nodeType !== Element.DOCUMENT_NODE) {
+        targetElement.parentNode.insertBefore(newElement, targetElement);
+    }
+}
+
+function insertElementAtBeginning(targetElement, newElement) {
+    if (typeof newElement === 'string') {
+        return targetElement.insertAdjacentHTML('afterbegin', newElement);
+    }
+    targetElement.insertBefore(newElement, targetElement.firstChild);
+}
+
+function insertElementAtEnd(targetElement, newElement) {
+    if (typeof targetElement === 'string') {
+        return targetElement.insertAdjacentHTML('beforeend', newElement);
+    }
+    targetElement.appendChild(newElement);
+    // targetElement.insertBefore(newElement, targetElement.lastChild);
+}
+
+function basePender(strategy) {
+    return function(base, newElement) {
+        return Func.createWalker(base, strategy, [base, newElement]);
+    };
+}
+
+var baseAppend = basePender(insertElementAfter);
+var basePrepend = basePender(insertElementBefore);
+var baseInsertHead = basePender(insertElementAtBeginning);
+var baseInsertEnd = basePender(insertElementAtEnd);
+
+//can be abstracted
+function pender(basePender) {
+    return function(newElements) {
+        var base = this;
+        if (Mini.isArrayLike(newElements)) {
+            Mini.arrayEach(newElements, function(ele) {
+                basePender(base, ele);
+            });
+        } else {
+            basePender(base, newElements);
+        }
+    };
+}
+
+var append = pender(baseAppend);
+var prepend = pender(basePrepend);
+var insertAtHead = pender(baseInsertHead);
+var insertAtEnd = pender(baseInsertEnd);
+
+N.append = append;
+N.prepend = prepend;
+N.insertHead = insertAtHead;
+N.insertTail = insertAtEnd;
+
+module.exports = N;
+},{"./funchelper":33,"coreutil/mini":2}],35:[function(require,module,exports){
 /*
  * Vendor specified properties list
  */

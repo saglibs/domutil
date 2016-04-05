@@ -4,7 +4,6 @@ var Attr = {};
 
 function noop(v) {return v}
 
-//TODO: this code style apprears for 3 times+, abstract it in the future
 function innerGetAttribute(ele, attr) {
     return ele.getAttribute(attr);
 }
