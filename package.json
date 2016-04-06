@@ -2,7 +2,7 @@
   "name": "domutil",
   "version": "0.0.3",
   "description": "dom operation utils",
-  "main": "index.js",
+  "main": "dom.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
