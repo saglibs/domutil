@@ -156,8 +156,13 @@ ARS.wrapperGen = function(identifier) {
     }
 
     function transformArray(obj) {
-        if (Mini.isArrayLike(obj)) {
-            Mini.arrayEach(obj, transformArray);
+        if (Mini.isArrayLike(obj) && typeof obj != 'string') {
+            Mini.arrayEach(obj, function(son) {
+                //if input is a string, will cause infinite loop
+                if (son !== obj || typeof obj !== 'object') {
+                    transformArray(son);
+                }
+            });
         }
         transform(obj, identifier);
     }
@@ -455,6 +460,8 @@ module.exports = C;
 
 var C = {};
 
+C.__isRoot__ = true;
+
 C.isArrayLike = require('lodash/isArrayLike');
 
 /**
@@ -504,6 +511,10 @@ try {
 } catch (e) {
     C.root = window;
 }
+
+C.root.__catching = false;
+
+C.__catching = false;
 
 //noinspection JSUnresolvedVariable
 // C.root = C.isNodejs ? GLOBAL : window;
@@ -767,7 +778,8 @@ module.exports = E;
  */
 var C = require('lodash/core');
 var Mini = require('../mini');
-var H = require('./stacktrace');
+var E = require('./stacktrace');
+var D = require('./detect');
 
 var I = function(template) {
     I.template = template || I.resultWrapper;
@@ -810,16 +822,23 @@ I.resultWrapper = function(v) {
  */
 I.each = function(obj, fn, stackStack) {
     stackStack = stackStack || [];
-    stackStack.push(H.getStackTrace());
+    if (typeof stackStack == 'string' || !Mini.isArrayLike(stackStack)) {
+        stackStack = [stackStack];
+    }
+    stackStack.unshift(E.getStackTrace());
     var ret = I.resultWrapper(obj);
-    if (H.debug) {
+    if (D.root.H.debug) {
+        var print = false;
         C.each(obj, function(val, key, list) {
             try {
                 var r = fn(val, key, list);
                 if (r) ret[key] = r;
             } catch (e) {
                 //E.printStackTrace only accepts one parameter
-                e.printStackTrace(stackStack);
+                if (!print) {
+                    e.printStackTrace(stackStack);
+                    print = true;
+                }
             }
         });
     } else {
@@ -849,18 +868,25 @@ I.every = C.each;
  */
 I.until = function(data, fn, callable, stackStack) {
     stackStack = stackStack || [];
-    stackStack.push(H.getStackTrace());
+    if (typeof stackStack == 'string' || !Mini.isArrayLike(stackStack)) {
+        stackStack = [stackStack];
+    }
+    stackStack.unshift(E.getStackTrace());
     var ret = I.resultWrapper(data);
     //TODO: does it work? (not including `core` module here due to dependency error)
     //TODO: remove dependency on static named variable `H`
-    if (H.debug) {
+    if (D.root.H.debug) {
+        var print = false;
         C.find(data, function(val, key, list) {
             try {
                 var r = fn(val, key, list);
                 if (r) ret[key] = r;
                 return callable(val, key, list);
             } catch (e) {
-                e.printStackTrace('Nested error', stackStack);
+                if (!print) {
+                    e.printStackTrace(stackStack);
+                    print = true;
+                }
             }
         });
     } else {
@@ -960,7 +986,7 @@ I.filter = function(ele, fn) {
 };
 
 module.exports = I;
-},{"../mini":3,"./stacktrace":16,"lodash/core":23}],11:[function(require,module,exports){
+},{"../mini":3,"./detect":8,"./stacktrace":16,"lodash/core":23}],11:[function(require,module,exports){
 /*
  * Math-Related Module
  */
@@ -1337,7 +1363,7 @@ var RsIdentifier = '__isRS__';
 //the default ResultSet should not exclude any values
 //noinspection JSUnusedLocalSymbols
 function checker(val) {
-    return true;
+    return !val['__isRoot__'];
 }
 
 //default channel doesn't need filter
@@ -1649,7 +1675,41 @@ var C = {};
 
 var Mini = require('../mini');
 
-var log = (console.error || console.log);
+function InformError() {
+    this.message = "Inform Error Catchers";
+    this.name = "InformError";
+    this.stack = new Error(this.name).stack;
+}
+
+InformError.prototype = Error.prototype;
+
+C.InformError = InformError;
+
+var clog = function (content) {
+    console.error(content);
+    //throw a simple error to inform catchers, eval(someone is catching)
+    if (eval('__catching')) {
+        throw new InformError("Nested Error");
+    }
+};
+
+var logStack = function(stackStack) {
+    var joined = [];
+    Mini.arrayEach(stackStack || [], function(stack) {
+        if (typeof stack == 'string') {
+            joined = joined.concat(stack.split("\n"));
+        } else if (stack instanceof Error) {
+            joined = joined.concat(stack.stack.split("\n"));
+        }
+    });
+    if (joined.length != 0) {
+        var ret = joined[0];
+        for (var i = 1; i < joined.length; i++) {
+            ret += "\n" + joined[i];
+        }
+        clog.apply(this, [ret]);
+    }
+};
 
 /**
  * Generate stack trace string. (separated by `\n`)
@@ -1669,6 +1729,7 @@ C.getStackTrace = function(title) {
         split.shift();
         split.shift();
         split.unshift(t);
+        // split.unshift(callstack);
         return split.join('\n');
     }
     return e.stack;
@@ -1684,6 +1745,7 @@ var DefaultTitle = "Error:";
  * @memberof H
  * @param {String|Error} [title] title or error of current layer
  * @param {Array} [stackStack] stack trace stack (possibly)
+ * @param {boolean} [silient] the current error should be silent
  * @example
  *
  * usage:
@@ -1694,8 +1756,7 @@ var DefaultTitle = "Error:";
  * variant:
  * error.printStackTrace() -> printStackTrace(error, [])
  */
-C.printStackTrace = function(title, stackStack) {
-    stackStack = stackStack || [];
+C.printStackTrace = function(title, stackStack, silient) {
     if (Mini.isArrayLike(title)) {
         //noinspection JSValidateTypes for arguments
         stackStack = title;
@@ -1706,12 +1767,12 @@ C.printStackTrace = function(title, stackStack) {
         }
     }
     title = title || DefaultTitle;
-    stackStack.unshift(C.getStackTrace(title));
-    var n = stackStack.length;
-    var l = stackStack.length;
-    for (l++; --l;) {
-        log(stackStack[n - l]);
+    stackStack = stackStack || [];
+    if (!Mini.isArrayLike(stackStack) || typeof stackStack == 'string') {
+        stackStack = [stackStack];
     }
+    if (!silient) stackStack.unshift(C.getStackTrace(title));
+    logStack.call(this, stackStack);
 };
 
 /**
@@ -6639,17 +6700,19 @@ var Mini = require('coreutil/mini');
  */
 function findElement(ele, selector) {
 
+    //top element is `html`, not document
+
     //if selector is RS or window/document, wrap it
     if (typeof selector !== 'string') {
-        if (selector === window) {
+        if (selector === window || selector === document
+            || (selector instanceof Node && !(selector instanceof Element))) {
             //css operations not allowed for window, but event operations allowed.
             //TODO: add dom event module, make a splitter and change code here
-            return wrap(document);
+            return wrap(document.querySelectorAll('html'));
         }
         if (selector instanceof NodeList
             || selector instanceof Element
-            || Mini.isArrayLike(selector)
-            || selector instanceof Node) {
+            || Mini.isArrayLike(selector)) {
             return wrap(selector);
         }
     }
@@ -6698,13 +6761,13 @@ try {
 }
 
 function checker(val) {
-    if (val instanceof Array || val instanceof htmlElementObj
-        || val instanceof NodeList || val instanceof Node) {
+    if (val instanceof Array || val instanceof htmlElementObj || val instanceof NodeList) {
         return true;
     }
 }
 
-ARS.registerChannel(DomIdentifier, [Element.prototype, Array.prototype, NodeList.prototype, Node.prototype], checker);
+//, Node.prototype node can be added as event targets, but not css now.
+ARS.registerChannel(DomIdentifier, [Element.prototype, Array.prototype, NodeList.prototype], checker);
 
 function registerComponent(name, func) {
     ARS.registerChannelFunction(DomIdentifier, name, func);

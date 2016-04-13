@@ -22,13 +22,13 @@ try {
 }
 
 function checker(val) {
-    if (val instanceof Array || val instanceof htmlElementObj
-        || val instanceof NodeList || val instanceof Node) {
+    if (val instanceof Array || val instanceof htmlElementObj || val instanceof NodeList) {
         return true;
     }
 }
 
-ARS.registerChannel(DomIdentifier, [Element.prototype, Array.prototype, NodeList.prototype, Node.prototype], checker);
+//, Node.prototype node can be added as event targets, but not css now.
+ARS.registerChannel(DomIdentifier, [Element.prototype, Array.prototype, NodeList.prototype], checker);
 
 function registerComponent(name, func) {
     ARS.registerChannelFunction(DomIdentifier, name, func);
