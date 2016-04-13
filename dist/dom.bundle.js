@@ -767,6 +767,7 @@ module.exports = E;
  */
 var C = require('lodash/core');
 var Mini = require('../mini');
+var H = require('./stacktrace');
 
 var I = function(template) {
     I.template = template || I.resultWrapper;
@@ -809,6 +810,7 @@ I.resultWrapper = function(v) {
  */
 I.each = function(obj, fn, stackStack) {
     stackStack = stackStack || [];
+    stackStack.push(H.getStackTrace());
     var ret = I.resultWrapper(obj);
     if (H.debug) {
         C.each(obj, function(val, key, list) {
@@ -847,6 +849,7 @@ I.every = C.each;
  */
 I.until = function(data, fn, callable, stackStack) {
     stackStack = stackStack || [];
+    stackStack.push(H.getStackTrace());
     var ret = I.resultWrapper(data);
     //TODO: does it work? (not including `core` module here due to dependency error)
     //TODO: remove dependency on static named variable `H`
@@ -957,7 +960,7 @@ I.filter = function(ele, fn) {
 };
 
 module.exports = I;
-},{"../mini":3,"lodash/core":23}],11:[function(require,module,exports){
+},{"../mini":3,"./stacktrace":16,"lodash/core":23}],11:[function(require,module,exports){
 /*
  * Math-Related Module
  */
