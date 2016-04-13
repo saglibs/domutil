@@ -6698,7 +6698,8 @@ try {
 }
 
 function checker(val) {
-    if (val instanceof Array || val instanceof htmlElementObj) {
+    if (val instanceof Array || val instanceof htmlElementObj
+        || val instanceof NodeList || val instanceof Node) {
         return true;
     }
 }
