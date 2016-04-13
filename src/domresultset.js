@@ -28,7 +28,7 @@ function checker(val) {
     }
 }
 
-ARS.registerChannel(DomIdentifier, [Element.prototype, Array.prototype, NodeList.prototype], checker);
+ARS.registerChannel(DomIdentifier, [Element.prototype, Array.prototype, NodeList.prototype, Node.prototype], checker);
 
 function registerComponent(name, func) {
     ARS.registerChannelFunction(DomIdentifier, name, func);
