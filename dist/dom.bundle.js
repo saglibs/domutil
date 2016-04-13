@@ -1,4 +1,17 @@
 (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
+var DOM = require('./src/cssselector');
+
+var Core = require('coreutil/core');
+var RS = require('./src/domresultset');
+var Attr = require('./src/cssattribute');
+
+Core.extend(Core, RS);
+Core.extend(Core, Attr);
+
+Core.root.H$ = DOM;
+
+module.exports = DOM;
+},{"./src/cssattribute":29,"./src/cssselector":31,"./src/domresultset":32,"coreutil/core":2}],2:[function(require,module,exports){
 var Core = require('./src/core');
 
 Core.extend(Core, require('./src/iterator'));
@@ -6,7 +19,7 @@ Core.extend(Core, require('./src/iterator'));
 Core.root.H = Core;
 
 module.exports = Core;
-},{"./src/core":6,"./src/iterator":9}],2:[function(require,module,exports){
+},{"./src/core":7,"./src/iterator":10}],3:[function(require,module,exports){
 /*
  * MiniCore module
  *
@@ -63,7 +76,7 @@ Mini.hiddenProperty = function(v) {
 };
 
 module.exports = Mini;
-},{}],3:[function(require,module,exports){
+},{}],4:[function(require,module,exports){
 /*
  * ResultSet: Array or Element, they share the same filter/checker
  */
@@ -105,33 +118,22 @@ ARS.registerChannel = function(identifier, targets, valuePrechecker) {
 };
 
 /**
- * Inner preCheck function. used to check validity of values
- *
- * @param {*} object value to check
- * @returns {boolean}
- */
-function preCheck(object) {
-    return !!(ARS.checkers[object[MODULE] || ""] || function() {})(object);
-}
-
-/**
  * Register ResultSet process functions.
- *
- * TODO: integrate ResultSet.registerComponent into this function (maybe some dependency injection?)
  *
  * @param {String} channel channel identifier
  * @param {String} name target function mount point
- * @param {Function} funcGen function generator, which produces a function with checker
- * function injected. This provides ability of checking content validity to target functions.
+ * @param {Function} func Checker function. This provides ability of checking content validity to target functions.
  */
-ARS.registerChannelFunction = function(channel, name, funcGen) {
+ARS.registerChannelFunction = function(channel, name, func) {
+    /**
+     * To avoid lodash internal error. (on Object.prototype)
+     * (ResultSet member functions `filter`, `toArray` and so-on conflict with the lodash ver.)
+     * @type {*|_.noop}
+     */
+    func.push = H.noop;
     Mini.arrayEach(ARS.checkTargets[channel] || [], function(target) {
-        if (target[name]) {
-            //exist, do nothing. cuz preChecker is relative to current module
-        } else {
-            //not exist, add func to target
-            // target[name] = funcGen(ARS.checkers[channel]);
-            H.addProperty(target, name, Mini.hiddenProperty(funcGen(preCheck)));
+        if (!target[name]) {
+            H.addProperty(target, name, Mini.hiddenProperty(func));
         }
     });
 };
@@ -176,7 +178,7 @@ ARS.wrapperGen = function(identifier) {
 };
 
 module.exports = ARS;
-},{"../mini":2,"./shims":14}],4:[function(require,module,exports){
+},{"../mini":3,"./shims":15}],5:[function(require,module,exports){
 var A = {};
 
 /**
@@ -296,7 +298,7 @@ A.readFloat32 = function(byteView, offset, littleEndian) {
 };
 
 module.exports = A;
-},{}],5:[function(require,module,exports){
+},{}],6:[function(require,module,exports){
 var C = require('./detect');
 
 /*
@@ -331,7 +333,7 @@ C.callCef = function(req, persistent, onsuccess, onfailure) {
 };
 
 module.exports = C;
-},{"./detect":7}],6:[function(require,module,exports){
+},{"./detect":8}],7:[function(require,module,exports){
 var _ = require('lodash/core');
 
 require('./raf');
@@ -446,7 +448,7 @@ C.clearTimer = function(timer) {
 };
 
 module.exports = C;
-},{"./abstractresultset":3,"./arraybuffer":4,"./cef_interactions":5,"./detect":7,"./event":8,"./math":10,"./object":11,"./raf":12,"./resultset":13,"./shims":14,"./stacktrace":15,"./storage":16,"./testers":17,"./urlutils":18,"./uuid":19,"lodash/core":22}],7:[function(require,module,exports){
+},{"./abstractresultset":4,"./arraybuffer":5,"./cef_interactions":6,"./detect":8,"./event":9,"./math":11,"./object":12,"./raf":13,"./resultset":14,"./shims":15,"./stacktrace":16,"./storage":17,"./testers":18,"./urlutils":19,"./uuid":20,"lodash/core":23}],8:[function(require,module,exports){
 /*
  * Env Detection Module
  */
@@ -629,7 +631,7 @@ C.isWebGLSupported();
 C.language = C.isNodejs ? "" : (navigator.language || navigator['browserLanguage'] || "").toLowerCase();
 
 module.exports = C;
-},{"lodash/isArrayLike":23}],8:[function(require,module,exports){
+},{"lodash/isArrayLike":24}],9:[function(require,module,exports){
 /*
  * Custom Event Manipulation Module
  */
@@ -759,7 +761,7 @@ E.EventDispatcher = function() {
 };
 
 module.exports = E;
-},{"./iterator":9,"./uuid":19}],9:[function(require,module,exports){
+},{"./iterator":10,"./uuid":20}],10:[function(require,module,exports){
 /*
  * Iterator Logic Module
  */
@@ -955,7 +957,7 @@ I.filter = function(ele, fn) {
 };
 
 module.exports = I;
-},{"../mini":2,"lodash/core":22}],10:[function(require,module,exports){
+},{"../mini":3,"lodash/core":23}],11:[function(require,module,exports){
 /*
  * Math-Related Module
  */
@@ -1242,7 +1244,7 @@ Ms.distOnEarth = function(p0, p1) {
 };
 
 module.exports = Ms;
-},{"../mini":2,"./stacktrace":15}],11:[function(require,module,exports){
+},{"../mini":3,"./stacktrace":16}],12:[function(require,module,exports){
 /*
  * Object-Related Module
  */
@@ -1305,7 +1307,7 @@ O.cloneByParse = function(obj) {
 };
 
 module.exports = O;
-},{"./stacktrace":15}],12:[function(require,module,exports){
+},{"./stacktrace":16}],13:[function(require,module,exports){
 var root = require('./detect').root;
 
 root.requestAnimationFrame = (function() {
@@ -1318,7 +1320,7 @@ root.requestAnimationFrame = (function() {
             return root.setTimeout(callback, 1000 / 60);
         };
 })();
-},{"./detect":7}],13:[function(require,module,exports){
+},{"./detect":8}],14:[function(require,module,exports){
 /*
  * ResultSet Module
  */
@@ -1339,11 +1341,7 @@ function checker(val) {
 ARS.registerChannel(RsIdentifier, [Array.prototype, Object.prototype], checker);
 
 function registerComponent(name, func) {
-    ARS.registerChannelFunction(RsIdentifier, name, function(preCheck) {
-        //r-w risky?
-        checker = preCheck;
-        return func;
-    });
+    ARS.registerChannelFunction(RsIdentifier, name, func);
 }
 
 function wrapFunction(fn) {
@@ -1447,7 +1445,7 @@ function sum() {
  * @returns {Number} length
  * @constructor
  */
-function Length() {
+function getLength() {
     return H.values(this).length;
 }
 
@@ -1485,7 +1483,7 @@ registerComponent("toArray", toArray);
 registerComponent("groupBy", groupBy);
 registerComponent("join",    join);
 registerComponent("sum",     sum);
-registerComponent("Length",  Length);
+registerComponent("Length",  getLength);
 registerComponent("values",  values);
 registerComponent("keys",    keys);
 registerComponent("flatten", flatten);
@@ -1508,7 +1506,7 @@ RS.wrap = wrap;
 RS.fastWrap = wrap;
 
 module.exports = RS;
-},{"./abstractresultset":3,"./iterator":9,"lodash/core":22}],14:[function(require,module,exports){
+},{"./abstractresultset":4,"./iterator":10,"lodash/core":23}],15:[function(require,module,exports){
 var S = {};
 
 var H = require('./detect');
@@ -1640,8 +1638,10 @@ if (!String.prototype.trim) {
 S.addProperty = addProperty;
 S.createObject = createObject;
 
+S.noop = function() {};
+
 module.exports = S;
-},{"./detect":7}],15:[function(require,module,exports){
+},{"./detect":8}],16:[function(require,module,exports){
 var C = {};
 
 var Mini = require('../mini');
@@ -1740,7 +1740,7 @@ Error.prototype.getStackTrace = C.getStackTrace;
 Error.prototype.printStackTrace = printStackTrace;
 
 module.exports = C;
-},{"../mini":2}],16:[function(require,module,exports){
+},{"../mini":3}],17:[function(require,module,exports){
 var C = {};
 var H = require('./stacktrace');
 var Detect = require('./detect');
@@ -1851,7 +1851,7 @@ function removeItemFallback(key) {
 }
 
 module.exports = C;
-},{"./detect":7,"./stacktrace":15}],17:[function(require,module,exports){
+},{"./detect":8,"./stacktrace":16}],18:[function(require,module,exports){
 var C = {};
 
 C.now = Date.now;
@@ -1937,7 +1937,7 @@ C.profileTimes = function(cb, times, title) {
 };
 
 module.exports = C;
-},{}],18:[function(require,module,exports){
+},{}],19:[function(require,module,exports){
 var C = {};
 
 var I = require('./iterator');
@@ -2029,7 +2029,7 @@ C.param = function(data) {
 };
 
 module.exports = C;
-},{"./detect":7,"./iterator":9}],19:[function(require,module,exports){
+},{"./detect":8,"./iterator":10}],20:[function(require,module,exports){
 var C = {};
 
 /**
@@ -2093,7 +2093,7 @@ C.fastUuid = function() {
 };
 
 module.exports = C;
-},{}],20:[function(require,module,exports){
+},{}],21:[function(require,module,exports){
 /**
  * The base implementation of `_.property` without support for deep paths.
  *
@@ -2109,7 +2109,7 @@ function baseProperty(key) {
 
 module.exports = baseProperty;
 
-},{}],21:[function(require,module,exports){
+},{}],22:[function(require,module,exports){
 var baseProperty = require('./_baseProperty');
 
 /**
@@ -2127,11 +2127,11 @@ var getLength = baseProperty('length');
 
 module.exports = getLength;
 
-},{"./_baseProperty":20}],22:[function(require,module,exports){
+},{"./_baseProperty":21}],23:[function(require,module,exports){
 (function (global){
 /**
  * @license
- * lodash 4.8.2 (Custom Build) <https://lodash.com/>
+ * lodash 4.10.0 (Custom Build) <https://lodash.com/>
  * Build: `lodash core -o ./dist/lodash.core.js`
  * Copyright jQuery Foundation and other contributors <https://jquery.org/>
  * Released under MIT license <https://lodash.com/license>
@@ -2144,7 +2144,7 @@ module.exports = getLength;
   var undefined;
 
   /** Used as the semantic version number. */
-  var VERSION = '4.8.2';
+  var VERSION = '4.10.0';
 
   /** Used as the `TypeError` message for "Functions" methods. */
   var FUNC_ERROR_TEXT = 'Expected a function';
@@ -2533,9 +2533,9 @@ module.exports = getLength;
    * Shortcut fusion is an optimization to merge iteratee calls; this avoids
    * the creation of intermediate arrays and can greatly reduce the number of
    * iteratee executions. Sections of a chain sequence qualify for shortcut
-   * fusion if the section is applied to an array of at least two hundred
-   * elements and any iteratees accept only one argument. The heuristic for
-   * whether a section qualifies for shortcut fusion is subject to change.
+   * fusion if the section is applied to an array of at least `200` elements
+   * and any iteratees accept only one argument. The heuristic for whether a
+   * section qualifies for shortcut fusion is subject to change.
    *
    * Chaining is supported in custom builds as long as the `_#value` method is
    * directly or indirectly included in the build.
@@ -2771,23 +2771,24 @@ module.exports = getLength;
    * @private
    * @param {Array} array The array to flatten.
    * @param {number} depth The maximum recursion depth.
-   * @param {boolean} [isStrict] Restrict flattening to arrays-like objects.
+   * @param {boolean} [predicate=isFlattenable] The function invoked per iteration.
+   * @param {boolean} [isStrict] Restrict to values that pass `predicate` checks.
    * @param {Array} [result=[]] The initial result value.
    * @returns {Array} Returns the new flattened array.
    */
-  function baseFlatten(array, depth, isStrict, result) {
-    result || (result = []);
-
+  function baseFlatten(array, depth, predicate, isStrict, result) {
     var index = -1,
         length = array.length;
 
+    predicate || (predicate = isFlattenable);
+    result || (result = []);
+
     while (++index < length) {
       var value = array[index];
-      if (depth > 0 && isArrayLikeObject(value) &&
-          (isStrict || isArray(value) || isArguments(value))) {
+      if (depth > 0 && predicate(value)) {
         if (depth > 1) {
           // Recursively flatten arrays (susceptible to call stack limits).
-          baseFlatten(value, depth - 1, isStrict, result);
+          baseFlatten(value, depth - 1, predicate, isStrict, result);
         } else {
           arrayPush(result, value);
         }
@@ -2800,7 +2801,7 @@ module.exports = getLength;
 
   /**
    * The base implementation of `baseForOwn` which iterates over `object`
-   * properties returned by `keysFunc` invoking `iteratee` for each property.
+   * properties returned by `keysFunc` and invokes `iteratee` for each property.
    * Iteratee functions may exit iteration early by explicitly returning `false`.
    *
    * @private
@@ -3525,6 +3526,17 @@ module.exports = getLength;
   }
 
   /**
+   * Checks if `value` is a flattenable `arguments` object or array.
+   *
+   * @private
+   * @param {*} value The value to check.
+   * @returns {boolean} Returns `true` if `value` is flattenable, else `false`.
+   */
+  function isFlattenable(value) {
+    return isArrayLikeObject(value) && (isArray(value) || isArguments(value));
+  }
+
+  /**
    * Checks if `value` is likely a prototype object.
    *
    * @private
@@ -3658,8 +3670,8 @@ module.exports = getLength;
   /**
    * Gets the index at which the first occurrence of `value` is found in `array`
    * using [`SameValueZero`](http://ecma-international.org/ecma-262/6.0/#sec-samevaluezero)
-   * for equality comparisons. If `fromIndex` is negative, it's used as the offset
-   * from the end of `array`.
+   * for equality comparisons. If `fromIndex` is negative, it's used as the
+   * offset from the end of `array`.
    *
    * @static
    * @memberOf _
@@ -4004,7 +4016,7 @@ module.exports = getLength;
   }
 
   /**
-   * Iterates over elements of `collection` invoking `iteratee` for each element.
+   * Iterates over elements of `collection` and invokes `iteratee` for each element.
    * The iteratee is invoked with three arguments: (value, index|key, collection).
    * Iteratee functions may exit iteration early by explicitly returning `false`.
    *
@@ -4047,8 +4059,8 @@ module.exports = getLength;
    * The guarded methods are:
    * `ary`, `chunk`, `curry`, `curryRight`, `drop`, `dropRight`, `every`,
    * `fill`, `invert`, `parseInt`, `random`, `range`, `rangeRight`, `repeat`,
-   * `sampleSize`, `slice`, `some`, `sortBy`, `take`, `takeRight`, `template`,
-   * `trim`, `trimEnd`, `trimStart`, and `words`
+   * `sampleSize`, `slice`, `some`, `sortBy`, `split`, `take`, `takeRight`,
+   * `template`, `trim`, `trimEnd`, `trimStart`, and `words`
    *
    * @static
    * @memberOf _
@@ -4087,7 +4099,7 @@ module.exports = getLength;
    * Reduces `collection` to a value which is the accumulated result of running
    * each element in `collection` thru `iteratee`, where each successive
    * invocation is supplied the return value of the previous. If `accumulator`
-   * is not given the first element of `collection` is used as the initial
+   * is not given, the first element of `collection` is used as the initial
    * value. The iteratee is invoked with four arguments:
    * (accumulator, value, index|key, collection).
    *
@@ -4206,8 +4218,7 @@ module.exports = getLength;
    * @category Collection
    * @param {Array|Object} collection The collection to iterate over.
    * @param {...(Array|Array[]|Function|Function[]|Object|Object[]|string|string[])}
-   *  [iteratees=[_.identity]] The iteratees to sort by, specified individually
-   *  or in arrays.
+   *  [iteratees=[_.identity]] The iteratees to sort by.
    * @returns {Array} Returns the new sorted array.
    * @example
    *
@@ -5242,8 +5253,8 @@ module.exports = getLength;
   var toNumber = Number;
 
   /**
-   * Converts `value` to a string if it's not one. An empty string is returned
-   * for `null` and `undefined` values. The sign of `-0` is preserved.
+   * Converts `value` to a string. An empty string is returned for `null`
+   * and `undefined` values. The sign of `-0` is preserved.
    *
    * @static
    * @memberOf _
@@ -5343,7 +5354,7 @@ module.exports = getLength;
   /**
    * This method is like `_.assignIn` except that it accepts `customizer`
    * which is invoked to produce the assigned values. If `customizer` returns
-   * `undefined` assignment is handled by the method instead. The `customizer`
+   * `undefined`, assignment is handled by the method instead. The `customizer`
    * is invoked with five arguments: (objValue, srcValue, key, object, source).
    *
    * **Note:** This method mutates `object`.
@@ -5374,7 +5385,7 @@ module.exports = getLength;
 
   /**
    * Creates an object that inherits from the `prototype` object. If a
-   * `properties` object is given its own enumerable string keyed properties
+   * `properties` object is given, its own enumerable string keyed properties
    * are assigned to the created object.
    *
    * @static
@@ -5448,16 +5459,16 @@ module.exports = getLength;
    * @returns {boolean} Returns `true` if `path` exists, else `false`.
    * @example
    *
-   * var object = { 'a': { 'b': { 'c': 3 } } };
-   * var other = _.create({ 'a': _.create({ 'b': _.create({ 'c': 3 }) }) });
+   * var object = { 'a': { 'b': 2 } };
+   * var other = _.create({ 'a': _.create({ 'b': 2 }) });
    *
    * _.has(object, 'a');
    * // => true
    *
-   * _.has(object, 'a.b.c');
+   * _.has(object, 'a.b');
    * // => true
    *
-   * _.has(object, ['a', 'b', 'c']);
+   * _.has(object, ['a', 'b']);
    * // => true
    *
    * _.has(other, 'a');
@@ -5566,8 +5577,7 @@ module.exports = getLength;
    * @memberOf _
    * @category Object
    * @param {Object} object The source object.
-   * @param {...(string|string[])} [props] The property identifiers to pick,
-   *  specified individually or in arrays.
+   * @param {...(string|string[])} [props] The property identifiers to pick.
    * @returns {Object} Returns the new object.
    * @example
    *
@@ -5714,8 +5724,8 @@ module.exports = getLength;
 
   /**
    * Creates a function that invokes `func` with the arguments of the created
-   * function. If `func` is a property name the created function returns the
-   * property value for a given element. If `func` is an array or object the
+   * function. If `func` is a property name, the created function returns the
+   * property value for a given element. If `func` is an array or object, the
    * created function returns `true` for elements that contain the equivalent
    * source properties, otherwise it returns `false`.
    *
@@ -5786,7 +5796,7 @@ module.exports = getLength;
 
   /**
    * Adds all own enumerable string keyed function properties of a source
-   * object to the destination object. If `object` is a function then methods
+   * object to the destination object. If `object` is a function, then methods
    * are added to its prototype as well.
    *
    * **Note:** Use `_.runInContext` to create a pristine `lodash` function to
@@ -5896,7 +5906,7 @@ module.exports = getLength;
   }
 
   /**
-   * Generates a unique ID. If `prefix` is given the ID is appended to it.
+   * Generates a unique ID. If `prefix` is given, the ID is appended to it.
    *
    * @static
    * @since 0.1.0
@@ -5920,7 +5930,7 @@ module.exports = getLength;
   /*------------------------------------------------------------------------*/
 
   /**
-   * Computes the maximum value of `array`. If `array` is empty or falsey
+   * Computes the maximum value of `array`. If `array` is empty or falsey,
    * `undefined` is returned.
    *
    * @static
@@ -5944,7 +5954,7 @@ module.exports = getLength;
   }
 
   /**
-   * Computes the minimum value of `array`. If `array` is empty or falsey
+   * Computes the minimum value of `array`. If `array` is empty or falsey,
    * `undefined` is returned.
    *
    * @static
@@ -6119,7 +6129,7 @@ module.exports = getLength;
 }.call(this));
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{}],23:[function(require,module,exports){
+},{}],24:[function(require,module,exports){
 var getLength = require('./_getLength'),
     isFunction = require('./isFunction'),
     isLength = require('./isLength');
@@ -6155,7 +6165,7 @@ function isArrayLike(value) {
 
 module.exports = isArrayLike;
 
-},{"./_getLength":21,"./isFunction":24,"./isLength":25}],24:[function(require,module,exports){
+},{"./_getLength":22,"./isFunction":25,"./isLength":26}],25:[function(require,module,exports){
 var isObject = require('./isObject');
 
 /** `Object#toString` result references. */
@@ -6200,7 +6210,7 @@ function isFunction(value) {
 
 module.exports = isFunction;
 
-},{"./isObject":26}],25:[function(require,module,exports){
+},{"./isObject":27}],26:[function(require,module,exports){
 /** Used as references for various `Number` constants. */
 var MAX_SAFE_INTEGER = 9007199254740991;
 
@@ -6238,7 +6248,7 @@ function isLength(value) {
 
 module.exports = isLength;
 
-},{}],26:[function(require,module,exports){
+},{}],27:[function(require,module,exports){
 /**
  * Checks if `value` is the
  * [language type](http://www.ecma-international.org/ecma-262/6.0/#sec-ecmascript-language-types)
@@ -6271,20 +6281,7 @@ function isObject(value) {
 
 module.exports = isObject;
 
-},{}],27:[function(require,module,exports){
-var DOM = require('./src/cssselector');
-
-var Core = require('coreutil/core');
-var RS = require('./src/domresultset');
-var Attr = require('./src/cssattribute');
-
-Core.extend(Core, RS);
-Core.extend(Core, Attr);
-
-Core.root.H$ = DOM;
-
-module.exports = DOM;
-},{"./src/cssattribute":29,"./src/cssselector":31,"./src/domresultset":32,"coreutil/core":1}],28:[function(require,module,exports){
+},{}],28:[function(require,module,exports){
 var Func = require('./funchelper');
 
 var Attr = {};
@@ -6562,7 +6559,7 @@ Attr.getSingleElement = getSingleElement;
 Attr.setCssAttribute = walkAndSetAttributes;
 
 module.exports = Attr;
-},{"./funchelper":33,"./vendor":35,"coreutil/mini":2}],30:[function(require,module,exports){
+},{"./funchelper":33,"./vendor":35,"coreutil/mini":3}],30:[function(require,module,exports){
 /*
  * CSS Attributes Operate
  */
@@ -6625,7 +6622,7 @@ Ops.cssAttr = function(attr, value) {
  */
 
 module.exports = Ops;
-},{"./cssattribute":29,"./funchelper":33,"coreutil/core":1}],31:[function(require,module,exports){
+},{"./cssattribute":29,"./funchelper":33,"coreutil/core":2}],31:[function(require,module,exports){
 var RS = require('./domresultset');
 var wrap = RS.wrapDom;
 var Mini = require('coreutil/mini');
@@ -6666,7 +6663,7 @@ var $ = function(selector) {
 $.findElement = findElement;
 
 module.exports = $;
-},{"./domresultset":32,"coreutil/mini":2}],32:[function(require,module,exports){
+},{"./domresultset":32,"coreutil/mini":3}],32:[function(require,module,exports){
 var RS = {};
 
 var ARS =      require('coreutil/src/abstractresultset');
@@ -6699,10 +6696,7 @@ function checker(val) {
 ARS.registerChannel(DomIdentifier, [Element.prototype, Array.prototype, NodeList.prototype], checker);
 
 function registerComponent(name, func) {
-    ARS.registerChannelFunction(DomIdentifier, name, function(preCheck) {
-        checker = preCheck;
-        return func;
-    });
+    ARS.registerChannelFunction(DomIdentifier, name, func);
 }
 
 /*
@@ -6772,7 +6766,7 @@ RS.wrapDom = wrap;
 RS.H$ = Selector;
 
 module.exports = RS;
-},{"./attribute":28,"./cssoperators":30,"./cssselector":31,"./nodeop":34,"coreutil/mini":2,"coreutil/src/abstractresultset":3}],33:[function(require,module,exports){
+},{"./attribute":28,"./cssoperators":30,"./cssselector":31,"./nodeop":34,"coreutil/mini":3,"coreutil/src/abstractresultset":4}],33:[function(require,module,exports){
 var Func = {};
 var Mini = require('coreutil/mini');
 
@@ -6849,7 +6843,7 @@ Func.arrayEnsureContains = ensureArrayContains;
 Func.arrayEnsureWithout = ensureArrayWithout;
 
 module.exports = Func;
-},{"coreutil/mini":2}],34:[function(require,module,exports){
+},{"coreutil/mini":3}],34:[function(require,module,exports){
 var N = {};
 
 var Func = require('./funchelper');
@@ -6924,7 +6918,7 @@ N.insertHead = insertAtHead;
 N.insertTail = insertAtEnd;
 
 module.exports = N;
-},{"./funchelper":33,"coreutil/mini":2}],35:[function(require,module,exports){
+},{"./funchelper":33,"coreutil/mini":3}],35:[function(require,module,exports){
 /*
  * Vendor specified properties list
  */
@@ -8053,4 +8047,4 @@ V.query = function(attr) {
 };
 
 module.exports = V;
-},{}]},{},[27]);
+},{}]},{},[1]);
