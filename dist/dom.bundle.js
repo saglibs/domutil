@@ -6641,18 +6641,16 @@ function findElement(ele, selector) {
 
     //if selector is RS or window/document, wrap it
     if (typeof selector !== 'string') {
-        if (selector instanceof NodeList
-            || selector instanceof Element
-            || Mini.isArrayLike(selector)) {
-            return wrap(selector);
-        }
-        if (selector instanceof Node) {
-            return wrap(selector);
-        }
         if (selector === window) {
             //css operations not allowed for window, but event operations allowed.
             //TODO: add dom event module, make a splitter and change code here
             return wrap(document);
+        }
+        if (selector instanceof NodeList
+            || selector instanceof Element
+            || Mini.isArrayLike(selector)
+            || selector instanceof Node) {
+            return wrap(selector);
         }
     }
 
