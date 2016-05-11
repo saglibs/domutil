@@ -1,9 +1,9 @@
 (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
-var DOM = require('./src/cssselector');
+var DOM = require('./src/main/javascript/cssselector');
 
 var Core = require('coreutil/core');
-var RS = require('./src/domresultset');
-var Attr = require('./src/cssattribute');
+var RS = require('./src/main/javascript/domresultset');
+var Attr = require('./src/main/javascript/cssattribute');
 
 Core.extend(Core, RS);
 Core.extend(Core, Attr);
@@ -11,7 +11,7 @@ Core.extend(Core, Attr);
 Core.root.H$ = DOM;
 
 module.exports = DOM;
-},{"./src/cssattribute":29,"./src/cssselector":31,"./src/domresultset":32,"coreutil/core":2}],2:[function(require,module,exports){
+},{"./src/main/javascript/cssattribute":29,"./src/main/javascript/cssselector":31,"./src/main/javascript/domresultset":32,"coreutil/core":2}],2:[function(require,module,exports){
 var Core = require('./src/core');
 
 Core.extend(Core, require('./src/iterator'));
@@ -360,6 +360,8 @@ var ARS = require('./abstractresultset');
 var RS = require('./resultset');
 
 var C = {};
+
+C.__isRoot__ = true;
 
 _.extend(C, _);
 _.extend(C, Detect);

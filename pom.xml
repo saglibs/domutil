@@ -22,6 +22,16 @@
         </dependency>
     </dependencies>
 
+    <distributionManagement>
+        <repository>
+            <id>ids-releases</id>
+            <url>http://mirrors.indoorstar.com/nexus/content/repositories/releases/</url>
+        </repository>
+        <snapshotRepository>
+            <id>ids-snapshots</id>
+            <url>http://mirrors.indoorstar.com/nexus/content/repositories/snapshots/</url>
+        </snapshotRepository>
+    </distributionManagement>
     <build>
         <sourceDirectory>src/main/javascript</sourceDirectory>
         <resources>
