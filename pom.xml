@@ -6,7 +6,7 @@
 
     <groupId>com.sagnitude</groupId>
     <artifactId>domutil</artifactId>
-    <version>0.1</version>
+    <version>0.2-SNAPSHOT</version>
 
     <name>domutil</name>
 
@@ -18,7 +18,7 @@
         <dependency>
             <groupId>com.sagnitude</groupId>
             <artifactId>coreutil</artifactId>
-            <version>0.1</version>
+            <version>0.2-SNAPSHOT</version>
         </dependency>
     </dependencies>
 
