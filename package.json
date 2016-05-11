@@ -19,6 +19,11 @@
     "url": "https://github.com/saglibs/domutil/issues"
   },
   "homepage": "https://github.com/saglibs/domutil#readme",
+  "//": {
+    "dependencies": {
+      "coreutil": "saglibs/coreutil"
+    }
+  },
   "devDependencies": {
     "browserify": "^13.0.1",
     "del": "^2.2.0",
