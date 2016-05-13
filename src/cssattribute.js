@@ -4,8 +4,14 @@
 var Attr = {};
 
 var Func = require('./funchelper');
-var Vendor = require('./vendor');
+var Vendor = require('./lightvendor');
 var Mini = require('coreutil/mini');
+
+Attr.__setVendorProvider = function(v) {
+    if (v.compose) {
+        Vendor = v;
+    }
+};
 
 var AttributeMap = {
     'width': ['innerWidth', 'clientWidth'],
@@ -113,7 +119,7 @@ function innerSetAttributeUntil(ele, attr, val) {
 /**
  * Walks on ResultSet and set attributes of each to val
  *
- * @param {Element|NodeList|Array} eles ResultSet to check
+ * @param {Element|NodeList|Array|Object} eles ResultSet to check
  * @param {String} attr attribute name
  * @param {String} val attribute value to set
  * @returns {*}
@@ -125,7 +131,7 @@ function walkAndSetAttributes(eles, attr, val) {
 /**
  * Get computed style of a ResultSet
  *
- * @param {Element|NodeList|Array} ele ResultSet to check
+ * @param {Element|NodeList|Array|Object} ele ResultSet to check
  * @param {String} attr attribute name
  */
 function getCssAttribute(ele, attr) {

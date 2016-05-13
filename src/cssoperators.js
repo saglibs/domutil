@@ -2,7 +2,7 @@
  * CSS Attributes Operate
  */
 var Attr = require('./cssattribute');
-var H = require('coreutil/core');
+var Mini = require('coreutil/mini');
 
 var Func = require('./funchelper');
 
@@ -47,9 +47,12 @@ Ops.cssAttr = function(attr, value) {
     } else if (typeof attr === 'object') {
         //set
         var ele = this;
-        H.each(attr, function(val, key) {
-            Attr.setCssAttribute(ele, key, val);
-        });
+        var key;
+        var keys = Mini.keys(attr) || [];
+        for (var i = 0; i < keys.length; i++) {
+            key = keys[i];
+            Attr.setCssAttribute(ele, key, attr[key]);
+        }
     } else if (arguments.length === 2) {
         Attr.setCssAttribute(this, attr, value);
     }

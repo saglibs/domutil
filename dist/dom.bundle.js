@@ -1,18 +1,20 @@
 (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
 var DOM = require('./src/cssselector');
 
-// var Core = require('./target/dependencies/core');
 var Core = require('coreutil/core');
 var RS = require('./src/domresultset');
 var Attr = require('./src/cssattribute');
+var Vendor = require('./src/vendor');
 
 Core.extend(Core, RS);
 Core.extend(Core, Attr);
 
+Core.__setVendorProvider(Vendor);
+
 Core.root.H$ = DOM;
 
 module.exports = DOM;
-},{"./src/cssattribute":59,"./src/cssselector":61,"./src/domresultset":62,"coreutil/core":2}],2:[function(require,module,exports){
+},{"./src/cssattribute":59,"./src/cssselector":61,"./src/domresultset":62,"./src/vendor":66,"coreutil/core":2}],2:[function(require,module,exports){
 var Core = require('./src/core');
 
 Core.extend(Core, require('./src/iterator'));
@@ -74,6 +76,14 @@ Mini.hiddenProperty = function(v) {
         enumerable: false,
         writable: true
     };
+};
+
+//No <IE9 Compat
+Mini.keys = function() {
+    if (arguments[0]) {
+        return Object.keys(arguments[0]);
+    }
+    return Object.keys(this);
 };
 
 module.exports = Mini;
@@ -5572,7 +5582,22 @@ C.__isRoot__ = true;
 
 C.__name = '$H';
 
-C.isArrayLike = require('lodash/isArrayLike');
+C.isArrayLike = function(value) {
+    if (value == null || value == undefined) {
+        return false;
+    }
+    var length = value["length"];
+    var toString = Object.prototype.toString.call(value);
+    if (toString == "[object Function]" || toString == "[object GeneratorFunction]") {
+        return false;
+    }
+    if (typeof length == "number") {
+        if (length > -1 && length < Number.MAX_VALUE && length % 1 === 0) {
+            return true;
+        }
+    }
+    return false;
+};
 
 /**
  * Check if a value can be parsed to an integer
@@ -5753,7 +5778,7 @@ C.language = C.isNodejs ? "" : (navigator.language || navigator['browserLanguage
 
 module.exports = C;
 
-},{"lodash/isArrayLike":26}],45:[function(require,module,exports){
+},{}],45:[function(require,module,exports){
 /*
  * Custom Event Manipulation Module
  */
@@ -7515,8 +7540,14 @@ module.exports = Attr;
 var Attr = {};
 
 var Func = require('./funchelper');
-var Vendor = require('./vendor');
+var Vendor = require('./lightvendor');
 var Mini = require('coreutil/mini');
+
+Attr.__setVendorProvider = function(v) {
+    if (v.compose) {
+        Vendor = v;
+    }
+};
 
 var AttributeMap = {
     'width': ['innerWidth', 'clientWidth'],
@@ -7624,7 +7655,7 @@ function innerSetAttributeUntil(ele, attr, val) {
 /**
  * Walks on ResultSet and set attributes of each to val
  *
- * @param {Element|NodeList|Array} eles ResultSet to check
+ * @param {Element|NodeList|Array|Object} eles ResultSet to check
  * @param {String} attr attribute name
  * @param {String} val attribute value to set
  * @returns {*}
@@ -7636,7 +7667,7 @@ function walkAndSetAttributes(eles, attr, val) {
 /**
  * Get computed style of a ResultSet
  *
- * @param {Element|NodeList|Array} ele ResultSet to check
+ * @param {Element|NodeList|Array|Object} ele ResultSet to check
  * @param {String} attr attribute name
  */
 function getCssAttribute(ele, attr) {
@@ -7653,12 +7684,12 @@ Attr.getSingleElement = getSingleElement;
 Attr.setCssAttribute = walkAndSetAttributes;
 
 module.exports = Attr;
-},{"./funchelper":63,"./vendor":65,"coreutil/mini":3}],60:[function(require,module,exports){
+},{"./funchelper":63,"./lightvendor":64,"coreutil/mini":3}],60:[function(require,module,exports){
 /*
  * CSS Attributes Operate
  */
 var Attr = require('./cssattribute');
-var H = require('coreutil/core');
+var Mini = require('coreutil/mini');
 
 var Func = require('./funchelper');
 
@@ -7703,9 +7734,12 @@ Ops.cssAttr = function(attr, value) {
     } else if (typeof attr === 'object') {
         //set
         var ele = this;
-        H.each(attr, function(val, key) {
-            Attr.setCssAttribute(ele, key, val);
-        });
+        var key;
+        var keys = Mini.keys(attr) || [];
+        for (var i = 0; i < keys.length; i++) {
+            key = keys[i];
+            Attr.setCssAttribute(ele, key, attr[key]);
+        }
     } else if (arguments.length === 2) {
         Attr.setCssAttribute(this, attr, value);
     }
@@ -7716,7 +7750,7 @@ Ops.cssAttr = function(attr, value) {
  */
 
 module.exports = Ops;
-},{"./cssattribute":59,"./funchelper":63,"coreutil/core":2}],61:[function(require,module,exports){
+},{"./cssattribute":59,"./funchelper":63,"coreutil/mini":3}],61:[function(require,module,exports){
 var RS = require('./domresultset');
 var wrap = RS.wrapDom;
 var Mini = require('coreutil/mini');
@@ -7870,7 +7904,7 @@ RS.wrapDom = wrap;
 RS.H$ = Selector;
 
 module.exports = RS;
-},{"./attribute":58,"./cssoperators":60,"./cssselector":61,"./nodeop":64,"coreutil/mini":3,"coreutil/src/abstractresultset":40}],63:[function(require,module,exports){
+},{"./attribute":58,"./cssoperators":60,"./cssselector":61,"./nodeop":65,"coreutil/mini":3,"coreutil/src/abstractresultset":40}],63:[function(require,module,exports){
 var Func = {};
 var Mini = require('coreutil/mini');
 
@@ -7948,6 +7982,42 @@ Func.arrayEnsureWithout = ensureArrayWithout;
 
 module.exports = Func;
 },{"coreutil/mini":3}],64:[function(require,module,exports){
+var L = {};
+
+L.toCamel = function(str) {
+    return str.replace(/-[a-z]/g, function($1) {
+        return $1[1].toUpperCase();
+    });
+};
+
+L.fromCamel = function(str) {
+    return str.replace(/[A-Z]/g, function($1) {
+        return '-' + $1.toLowerCase();
+    });
+};
+
+L.capitalize = function(str) {
+    return str[0].toUpperCase() + str.substr(1);
+};
+
+L.compose = function(attr) {
+    var c = L.toCamel(attr);
+    var f = L.fromCamel(attr);
+    var ret = [c, f];
+    var cC = c;
+    if (c && c[0]) {
+        cC = L.capitalize(c);
+    }
+    var available = ["ms", "webkit", "moz", "o"];
+    for (var i = 0; i < available.length; i++) {
+        ret.push(available[i] + cC);
+        ret.push(L.fromCamel(L.capitalize(available[i]) + cC));
+    }
+    return ret;
+};
+
+module.exports = L;
+},{}],65:[function(require,module,exports){
 var N = {};
 
 var Func = require('./funchelper');
@@ -8022,12 +8092,14 @@ N.insertHead = insertAtHead;
 N.insertTail = insertAtEnd;
 
 module.exports = N;
-},{"./funchelper":63,"coreutil/mini":3}],65:[function(require,module,exports){
+},{"./funchelper":63,"coreutil/mini":3}],66:[function(require,module,exports){
 /*
  * Vendor specified properties list
  */
 
 var V = {};
+
+var L = require('./lightvendor');
 
 V.attrs = {
     "align-content": [
@@ -9127,17 +9199,9 @@ V.attrs = {
     ]
 };
 
-V.toCamel = function(str) {
-    return str.replace(/-[a-z]/g, function($1) {
-        return $1[1].toUpperCase();
-    });
-};
+V.toCamel = L.toCamel;
 
-V.fromCamel = function(str) {
-    return str.replace(/[A-Z]/g, function($1) {
-        return '-' + $1.toLowerCase();
-    });
-};
+V.fromCamel = L.fromCamel;
 
 V.query = function(attr) {
     var a = V.fromCamel(attr);
@@ -9150,5 +9214,13 @@ V.query = function(attr) {
     return list;
 };
 
+V.compose = function(attr) {
+    var c = V.toCamel(attr);
+    var f = V.fromCamel(attr);
+    var c_alias = V.attrs[c] || [];
+    var f_alias = V.attrs[f] || [];
+    return c_alias.concat(f_alias).concat([attr]);
+};
+
 module.exports = V;
-},{}]},{},[1]);
+},{"./lightvendor":64}]},{},[1]);

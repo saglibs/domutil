@@ -4,6 +4,8 @@
 
 var V = {};
 
+var L = require('./lightvendor');
+
 V.attrs = {
     "align-content": [
         "-webkit-align-content"
@@ -1102,17 +1104,9 @@ V.attrs = {
     ]
 };
 
-V.toCamel = function(str) {
-    return str.replace(/-[a-z]/g, function($1) {
-        return $1[1].toUpperCase();
-    });
-};
+V.toCamel = L.toCamel;
 
-V.fromCamel = function(str) {
-    return str.replace(/[A-Z]/g, function($1) {
-        return '-' + $1.toLowerCase();
-    });
-};
+V.fromCamel = L.fromCamel;
 
 V.query = function(attr) {
     var a = V.fromCamel(attr);
@@ -1123,6 +1117,14 @@ V.query = function(attr) {
         list = V.attrs[attr] || [];
     }
     return list;
+};
+
+V.compose = function(attr) {
+    var c = V.toCamel(attr);
+    var f = V.fromCamel(attr);
+    var c_alias = V.attrs[c] || [];
+    var f_alias = V.attrs[f] || [];
+    return c_alias.concat(f_alias).concat([attr]);
 };
 
 module.exports = V;
