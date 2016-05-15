@@ -56,7 +56,7 @@ function walkAndSetAttributes(eles, attr, val) {
 /**
  * Walks and recursively set all Elements' attribute values to the corresponding value in the offered ResultSet.
  *
- * @param {Array|Element|NodeList} eles ResultSet
+ * @param {Array|Element|NodeList|Object} eles ResultSet
  * @param {String} attr attribute name
  * @param {String} valSet different attribute values stored as a ResultSet
  */

@@ -223,6 +223,12 @@ C.isArrayLike = function(value) {
     return false;
 };
 
+C.isObject = function(value) {
+    var toString = Object.prototype.toString.call(value);
+    return !!(toString == "[object Function]" || toString == "[object GeneratorFunction]");
+
+};
+
 /**
  * Check if a value can be parsed to an integer
  *
@@ -429,7 +435,7 @@ if (!Object.defineProperty || (0 < H.getIE() <= 8 && navigator.userAgent.indexOf
     addProperty = function(instance, k, descriptor) {
         instance[k] = descriptor.value;
 
-        if (isObject(descriptor[k])) {
+        if (H.isObject(descriptor[k])) {
             instance[k].ienumerable = !descriptor.enumerable;
         } else {
             if (!instance[k].ienumerables) {
@@ -597,7 +603,7 @@ function walkAndSetAttributes(eles, attr, val) {
 /**
  * Walks and recursively set all Elements' attribute values to the corresponding value in the offered ResultSet.
  *
- * @param {Array|Element|NodeList} eles ResultSet
+ * @param {Array|Element|NodeList|Object} eles ResultSet
  * @param {String} attr attribute name
  * @param {String} valSet different attribute values stored as a ResultSet
  */
